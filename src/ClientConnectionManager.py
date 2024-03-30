@@ -55,6 +55,19 @@ class ClientConnectionManager(ConnectionManager):
         while not self._server_ready:
             pass
 
+    def send_message_to(self, message: bytes, recipient_id: bytes) -> None:
+        # Get the recipient's shared secret and public key.
+        shared_secret, public_key, ready = self._chat_info[recipient_id]
+
+        # If the recipient is not ready, wait for them to be.
+        if not ready:
+            self._handle_error(IPv6Address("::1"), b"Recipient not ready.")
+            return
+
+        # Encrypt the message and send it.
+        encrypted_message = self._encrypt_message(shared_secret, message)
+        self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, self._username + recipient_id + encrypted_message)
+
     def _handle_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         match command:
             # When the server confirms the registration and sends the client a certificate.
@@ -158,7 +171,7 @@ class ClientConnectionManager(ConnectionManager):
         shared_secret = self._secret_key.decrypt(kem_wrapped_shared_secret)
         self._chat_info[chat_receiver_id] = (shared_secret, chat_receiver_public_key, True)
 
-    def handle_received_message(self, addr: IPv6Address, data: bytes) -> None:
+    def _handle_received_message(self, addr: IPv6Address, data: bytes) -> None:
         # Extract the message ID, sender, and encrypted message.
         message_id = data[:DIGEST_SIZE]
         sender = data[DIGEST_SIZE:DIGEST_SIZE * 2]
