@@ -3,7 +3,7 @@ from ipaddress import IPv6Address
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.hazmat.primitives.serialization import load_pem_public_key, load_pem_private_key
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat, NoEncryption
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.exceptions import InvalidSignature
@@ -33,9 +33,15 @@ class ClientConnectionManager(ConnectionManager):
 
     def register_to_server(self) -> None:
         # Don't allow double registration.
-        if os.path.exists("_my_keys/public_key.pem"):
+        if os.path.exists("src/_my_keys"):
+            self._secret_key = load_pem_private_key(open("src/_my_keys/private_key.pem", "rb").read(), password=None)
+            self._public_key = load_pem_public_key(open("src/_my_keys/public_key.pem", "rb").read())
+            self._username = open("src/_my_keys/identifier.txt", "rb").read()
+            self._cert = open("src/_server_keys/certificate.pem", "rb").read()
             self._handle_error(IPv6Address("::1"), b"Already registered.")
             return
+
+        os.mkdir("src/_my_keys")
 
         # Create a username (hash = ID), and generate a key pair.
         username = input("Username: ")
@@ -50,6 +56,7 @@ class ClientConnectionManager(ConnectionManager):
         public_pem = self._public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.PKCS1)
         open("src/_my_keys/private_key.pem", "wb").write(secret_pem)
         open("src/_my_keys/public_key.pem", "wb").write(public_pem)
+        open("src/_my_keys/identifier.txt", "wb").write(hashed_username)
         print("\tRegistering with the server...")
 
         # Send the registration command to the server.
@@ -130,6 +137,8 @@ class ClientConnectionManager(ConnectionManager):
         try:
             server_public_key.verify(certificate_sig, certificate_raw)
             self._cert = certificate_raw
+            open("src/_server_keys/certificate.pem", "wb").write(certificate_raw)
+            print("Certificate verified.")
 
         except InvalidSignature:
             print("Certificate verification failed.")

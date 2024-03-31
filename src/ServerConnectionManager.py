@@ -22,7 +22,11 @@ class ServerConnectionManager(ConnectionManager):
         super().__init__()
 
         # Initialize the attributes.
+        self._secret_key = None
+        self._public_key = None
         self._node_ips = {}
+        self._node_pub_keys = {}
+        self._message_queue = {}
 
         # Either load the key pair from disk or generate a new one.
         if not os.path.exists("src/_my_keys/private_key.pem"):
