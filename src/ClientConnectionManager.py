@@ -30,6 +30,9 @@ class ClientConnectionManager(ConnectionManager):
         self._server_ready = False
         self._username = b""
         self.register_to_server()
+        while not self._cert:
+            pass
+        self.tell_server_client_is_online()
 
     def register_to_server(self) -> None:
         # Don't allow double registration.
