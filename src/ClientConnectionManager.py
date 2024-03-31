@@ -78,7 +78,6 @@ class ClientConnectionManager(ConnectionManager):
         challenge = challenge_sig + challenge_raw
 
         sending_data = self._cert + challenge
-        print(sending_data)
         self._send_command(ConnectionProtocol.CLIENT_ONLINE, SERVER_IP, sending_data)
 
         # Wait for the server to be ready.
