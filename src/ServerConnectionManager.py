@@ -27,6 +27,7 @@ class ServerConnectionManager(ConnectionManager):
         self._public_key = None
         self._node_ips = {}
         self._node_pub_keys = {}
+        self._node_certs = {}
         self._message_queue = {}
 
         # Either load the key pair from disk or generate a new one.
