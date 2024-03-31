@@ -135,7 +135,14 @@ class ClientConnectionManager(ConnectionManager):
 
         # If the certificate is valid, store it and set the server as ready.
         try:
-            server_public_key.verify(certificate_sig, certificate_raw)
+            server_public_key.verify(
+                signature=certificate_sig,
+                data=certificate_raw,
+                padding=padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH),
+                algorithm=hashes.SHA256())
+
             self._cert = certificate_raw
             open("src/_server_keys/certificate.pem", "wb").write(certificate_raw)
             print("Certificate verified.")
@@ -183,9 +190,15 @@ class ClientConnectionManager(ConnectionManager):
 
         # Verify the recipient's certificate is valid.
         try:
-            server_public_key = open("_server_keys/public_key.pem", "rb").read()
-            server_public_key = load_pem_public_key(server_public_key)
-            server_public_key.verify(chat_receiver_certificate, self._cert)
+            server_public_key_raw = open("_server_keys/public_key.pem", "rb").read()
+            server_public_key: rsa.RSAPublicKey = load_pem_public_key(server_public_key_raw)
+            server_public_key.verify(
+                signature=chat_receiver_certificate,
+                data=self._cert,
+                padding=padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH),
+                algorithm=hashes.SHA256())
 
         except InvalidSignature:
             print("Invalid certificate.")
@@ -193,7 +206,13 @@ class ClientConnectionManager(ConnectionManager):
 
         # Verify the signed KEM is valid.
         chat_receiver_public_key = self._chat_info[chat_receiver_id][1]
-        load_pem_public_key(chat_receiver_public_key).verify(signed_kem_wrapped_shared_secret, kem_wrapped_shared_secret)
+        load_pem_public_key(chat_receiver_public_key).verify(
+            signature=signed_kem_wrapped_shared_secret,
+            data=kem_wrapped_shared_secret,
+            padding=padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH),
+            algorithm=hashes.SHA256())
 
         # Decrypt the KEM and store the shared secret.
         shared_secret = self._secret_key.decrypt(
