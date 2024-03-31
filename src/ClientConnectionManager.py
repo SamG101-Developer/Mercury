@@ -348,7 +348,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Create the message window (as a command line window).
         process = subprocess.Popen(
-            args=["cmd.exe" if os.name == "nt" else "bash"],
+            args=["cmd.exe" if os.name == "nt" else "lxterminal"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
