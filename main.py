@@ -1,8 +1,4 @@
 from argparse import ArgumentParser
-from threading import Thread
-import sys
-
-from PyQt6.QtWidgets import QApplication
 
 
 def main():
@@ -27,10 +23,13 @@ def main():
 
 
 def run(instance: type):
-    sys.excepthook = lambda *args: sys.__excepthook__(*args)
-    application = QApplication(sys.argv)
+    # sys.excepthook = lambda *args: sys.__excepthook__(*args)
+    # application = QApplication(sys.argv)
     instance()
-    sys.exit(application.exec())
+    # sys.exit(application.exec())
+
+    while True:
+        pass
 
 
 if __name__ == "__main__":

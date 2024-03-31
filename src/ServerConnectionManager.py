@@ -19,7 +19,7 @@ class ServerConnectionManager(ConnectionManager):
     _message_queue: dict[bytes, dict[bytes, tuple[bytes, bytes]]]  # ID -> {message_id -> (sender, message)}
 
     def __init__(self):
-        super().__init__()
+        super().__init__(is_server=True)
 
         # Initialize the attributes.
         self._secret_key = None

@@ -1,5 +1,6 @@
-import time, os
+import threading, time, os
 from ipaddress import IPv6Address
+from threading import Thread
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -11,7 +12,7 @@ from cryptography.exceptions import InvalidSignature
 from src.ConnectionManager import ConnectionManager
 from src.ConnectionProtocol import ConnectionProtocol
 from src.Crypto import *
-from src.ClientGui import ClientGui
+# from src.ClientGui import ClientGui
 
 
 SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
@@ -25,15 +26,17 @@ class ClientConnectionManager(ConnectionManager):
     _secret_key: rsa.RSAPrivateKey
     _public_key: rsa.RSAPublicKey
     _chats: dict[bytes, list[bytes]]  # ID -> [Raw Message]
-    _gui: ClientGui
+    # _gui: ClientGui
 
     def __init__(self):
         super().__init__()
         self._server_ready = False
         self._username = b""
 
-        self._gui = ClientGui()
+        # self._gui = ClientGui()
+        Thread(target=self.boot_sequence).start()
 
+    def boot_sequence(self):
         self.register_to_server()
         while not self._cert:
             pass
@@ -50,7 +53,8 @@ class ClientConnectionManager(ConnectionManager):
             return
 
         os.mkdir("src/_my_keys")
-        self._gui.show_register(self.register_to_server_internal)
+        # self._gui.show_register(self.register_to_server_internal)
+        self.register_to_server_internal(input("Username: "))
 
     def register_to_server_internal(self, username: str) -> None:
         # Create a username (hash = ID), and generate a key pair.
@@ -69,10 +73,10 @@ class ClientConnectionManager(ConnectionManager):
         print("\tRegistering with the server...")
 
         # Send the registration command to the server.
-        self._send_command(ConnectionProtocol.REGISTER, SERVER_IP, hashed_username + public_pem)
+        self._send_command(ConnectionProtocol.REGISTER, SERVER_IP, hashed_username + public_pem, to_server=True)
 
     def tell_server_client_is_online(self) -> None:
-        self._gui.hide_register()
+        # self._gui.hide_register()
         print("Notifying server that client is online.")
 
         # Tell the client that the node with this username is now online.
@@ -86,7 +90,7 @@ class ClientConnectionManager(ConnectionManager):
         challenge = challenge_sig + challenge_raw
 
         sending_data = self._cert + challenge
-        self._send_command(ConnectionProtocol.CLIENT_ONLINE, SERVER_IP, sending_data)
+        self._send_command(ConnectionProtocol.CLIENT_ONLINE, SERVER_IP, sending_data, to_server=True)
 
         # Wait for the server to be ready.
         while not self._server_ready:
@@ -103,7 +107,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Encrypt the message and send it.
         encrypted_message = self._encrypt_message(shared_secret, message)
-        self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, self._username + recipient_id + encrypted_message)
+        self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, self._username + recipient_id + encrypted_message, to_server=True)
 
     def _handle_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         match command:
