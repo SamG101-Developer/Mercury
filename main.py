@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 from threading import Thread
 import sys
 
-from PyQt5.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication
 
 
 def main():
@@ -27,6 +27,7 @@ def main():
 
 
 def run(instance: type):
+    sys.excepthook = lambda *args: sys.__excepthook__(*args)
     application = QApplication(sys.argv)
     instance()
     sys.exit(application.exec())
