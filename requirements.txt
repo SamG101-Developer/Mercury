@@ -1,2 +1,2 @@
 cryptography==42.0.5
-PySide6==6.6.3
+PySide6==6.6.0
