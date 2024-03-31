@@ -1,5 +1,4 @@
-import os
-import time
+import time, os
 from ipaddress import IPv6Address
 
 from cryptography.hazmat.primitives import hashes
@@ -12,6 +11,7 @@ from cryptography.exceptions import InvalidSignature
 from src.ConnectionManager import ConnectionManager
 from src.ConnectionProtocol import ConnectionProtocol
 from src.Crypto import *
+from src.ClientGui import ClientGui
 
 
 SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
@@ -25,11 +25,15 @@ class ClientConnectionManager(ConnectionManager):
     _secret_key: rsa.RSAPrivateKey
     _public_key: rsa.RSAPublicKey
     _chats: dict[bytes, list[bytes]]  # ID -> [Raw Message]
+    _gui: ClientGui
 
     def __init__(self):
         super().__init__()
         self._server_ready = False
         self._username = b""
+
+        self._gui = ClientGui()
+
         self.register_to_server()
         while not self._cert:
             pass
@@ -46,9 +50,10 @@ class ClientConnectionManager(ConnectionManager):
             return
 
         os.mkdir("src/_my_keys")
+        self._gui.show_register(self.register_to_server_internal)
 
+    def register_to_server_internal(self, username: str) -> None:
         # Create a username (hash = ID), and generate a key pair.
-        username = input("Username: ")
         hashed_username = HASH_ALGORITHM(username.encode()).digest()
         self._username = hashed_username
         self._secret_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -67,6 +72,7 @@ class ClientConnectionManager(ConnectionManager):
         self._send_command(ConnectionProtocol.REGISTER, SERVER_IP, hashed_username + public_pem)
 
     def tell_server_client_is_online(self) -> None:
+        self._gui.hide_register()
         print("Notifying server that client is online.")
 
         # Tell the client that the node with this username is now online.

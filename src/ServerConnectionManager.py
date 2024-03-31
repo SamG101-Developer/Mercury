@@ -161,11 +161,10 @@ class ServerConnectionManager(ConnectionManager):
             self._send_command(ConnectionProtocol.ERROR, addr, b"Challenge expired.")
             return
 
-        print("here?")
-
         # Store the client's IP address, and send an acknowledgement.
         self._node_ips[client_username] = addr
         self._send_command(ConnectionProtocol.CLIENT_ONLINE_ACK, addr, b"")
+        print(f"{client_username} is online ({addr}).")
 
         # If the client has messages in the queue, send them.
         if client_username in self._message_queue:
