@@ -29,7 +29,7 @@ class ServerConnectionManager(ConnectionManager):
         self._message_queue = {}
 
         # Either load the key pair from disk or generate a new one.
-        if not os.path.exists("src/_my_keys/private_key.pem"):
+        if not os.path.exists("src/_server_keys"):
             self._generate_and_serialize_key_pair()
         else:
             self._load_key_pair()
@@ -42,13 +42,14 @@ class ServerConnectionManager(ConnectionManager):
         # Serialize the keys to PEM format and write them to disk.
         secret_pem = self._secret_key.private_bytes(encoding=Encoding.PEM, format=PrivateFormat.PKCS8, encryption_algorithm=NoEncryption())
         public_pem = self._public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.PKCS1)
-        open("private_key.pem", "wb").write(secret_pem)
-        open("public_key.pem", "wb").write(public_pem)
+        os.mkdir("src/_server_keys")
+        open("src/_server_keys/private_key.pem", "wb").write(secret_pem)
+        open("src/_server_keys/public_key.pem", "wb").write(public_pem)
 
     def _load_key_pair(self) -> None:
         # Load the secret and public key from disk.
-        secret_pem = open("private_key.pem", "rb").read()
-        public_pem = open("public_key.pem", "rb").read()
+        secret_pem = open("src/_server_keys/private_key.pem", "rb").read()
+        public_pem = open("src/_server_keys/public_key.pem", "rb").read()
         self._secret_key = load_pem_private_key(secret_pem, password=None)
         self._public_key = load_pem_public_key(public_pem)
 
