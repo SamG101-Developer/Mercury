@@ -181,12 +181,15 @@ class ServerConnectionManager(ConnectionManager):
             self._send_command(ConnectionProtocol.ERROR, addr, b"Recipient is not online.")
             return
 
-        # Send the invite to the recipient.
+        # Create the invitation for the recipient.
         recipient_addr = self._node_ips[recipient_username]
         sender_username = [k for k, v in self._node_ips.items() if v == addr][0]
         sender_public_key = self._node_pub_keys[sender_username]
         sender_ip_address = addr.packed
-        self._send_command(ConnectionProtocol.PREP_FOR_SOLO, recipient_addr, sender_username + sender_public_key + sender_ip_address)
+        sending_data = sender_username + sender_public_key + sender_ip_address
+
+        # Send the invitation to the recipient.
+        self._send_command(ConnectionProtocol.PREP_FOR_SOLO, recipient_addr, sending_data)
 
     def _handle_send_message(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the recipient's username and the encrypted_message.

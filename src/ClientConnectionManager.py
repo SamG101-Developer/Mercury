@@ -207,8 +207,8 @@ class ClientConnectionManager(ConnectionManager):
     def _prepare_for_solo_chat(self, addr: IPv6Address, data: bytes) -> None:
         # Get the chat initiator's username and public key.
         chat_initiator_username = data[:DIGEST_SIZE]
-        chat_initiator_public_key = data[DIGEST_SIZE:-4]
-        chat_initiator_ip_address = IPv6Address(data[-4:])
+        chat_initiator_public_key = data[DIGEST_SIZE:-IP_SIZE]
+        chat_initiator_ip_address = IPv6Address(data[-IP_SIZE:])
 
         # Create a shared secret, KEM it and sign it.
         shared_secret = os.urandom(32)
@@ -307,7 +307,7 @@ class ClientConnectionManager(ConnectionManager):
             self._send_command(ConnectionProtocol.SOLO_INVITE, SERVER_IP, recipient_id, to_server=True)
 
             # Wait until ready to chat with them.
-            while recipient_id not in self._chat_info.keys() and not self._chat_info[recipient_id].ready:
+            while recipient_id not in self._chat_info.keys() or not self._chat_info[recipient_id].ready:
                 pass
 
         # Create the message window (as a command line window).
