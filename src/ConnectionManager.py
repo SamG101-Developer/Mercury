@@ -18,7 +18,7 @@ class ConnectionManager(ABC):
     def _listen(self) -> None:
         print("Listening for incoming connections...")
         while True:
-            data, addr = self._server_socket.recvfrom(1024)
+            data, addr = self._server_socket.recvfrom(2048)
             command = ConnectionProtocol(data[0])
             addr = IPv6Address(addr[0])
             Thread(target=self._handle_command, args=(command, addr, data[1:])).start()
