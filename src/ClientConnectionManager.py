@@ -271,13 +271,17 @@ class ClientConnectionManager(ConnectionManager):
 
         # Verify the signed KEM is valid.
         chat_receiver_public_key = self._chat_info[chat_receiver_id].public_key
-        load_pem_public_key(chat_receiver_public_key).verify(
-            signature=signed_kem_wrapped_shared_secret,
-            data=kem_wrapped_shared_secret,
-            padding=padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH),
-            algorithm=hashes.SHA256())
+        try:
+            load_pem_public_key(chat_receiver_public_key).verify(
+                signature=signed_kem_wrapped_shared_secret,
+                data=kem_wrapped_shared_secret,
+                padding=padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH),
+                algorithm=hashes.SHA256())
+        except InvalidSignature:
+            print("Invalid KEM signature.")
+            return
 
         # Decrypt the KEM and store the shared secret.
         shared_secret = self._secret_key.decrypt(
