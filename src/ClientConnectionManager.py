@@ -22,7 +22,6 @@ SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 @dataclass(kw_only=True)
 class ChatInfo:
     shared_secret: bytes
-    public_key: bytes
     ready: bool
     process: subprocess.Popen
 
@@ -31,6 +30,7 @@ class ClientConnectionManager(ConnectionManager):
     _server_ready: bool
     _cert = None
     _chat_info: dict[bytes, ChatInfo]  # ID -> (Shared secret, Public key, Ready)
+    _kex_pub_keys: dict[bytes, bytes]  # ID -> Public Key
     _username: bytes
     _secret_key: rsa.RSAPrivateKey
     _public_key: rsa.RSAPublicKey
@@ -109,15 +109,15 @@ class ClientConnectionManager(ConnectionManager):
 
     def _send_message_to(self, message: bytes, recipient_id: bytes) -> None:
         # Get the recipient's shared secret and public key.
-        shared_secret, public_key, ready = self._chat_info[recipient_id]
+        chat = self._chat_info[recipient_id]
 
         # If the recipient is not ready, wait for them to be.
-        if not ready:
+        if not chat.ready:
             self._handle_error(IPv6Address("::1"), b"Recipient not ready.")
             return
 
         # Encrypt the message and send it.
-        encrypted_message = self._encrypt_message(shared_secret, message)
+        encrypted_message = self._encrypt_message(chat.shared_secret, message)
         self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, self._username + recipient_id + encrypted_message, to_server=True)
 
     def _handle_local_command(self, command: str) -> None:
@@ -264,9 +264,10 @@ class ClientConnectionManager(ConnectionManager):
             return
 
         # Wait for the public key (should have already been received at this point)
-        while not self._chat_info[chat_receiver_id].public_key:
+        while chat_receiver_id not in self._kex_pub_keys.keys():
             pass
-        chat_receiver_public_key_raw = self._chat_info[chat_receiver_id].public_key
+        chat_receiver_public_key_raw = self._kex_pub_keys[chat_receiver_id]
+        del self._kex_pub_keys[chat_receiver_id]
 
         # Verify the signed KEM is valid.
         try:
@@ -332,10 +333,7 @@ class ClientConnectionManager(ConnectionManager):
         recipient_id = certificate_raw[:DIGEST_SIZE]
         recipient_public_key = certificate_raw[-RSA_PUBLIC_KEY_PEM_SIZE:]
 
-        if recipient_id in self._chat_info.keys():
-            self._chat_info[recipient_id].public_key = recipient_public_key
-
-        # else: send error back?
+        self._kex_pub_keys[recipient_id] = recipient_public_key
 
     def _open_chat_with(self, data: str) -> None:
         # Get the recipient id.
