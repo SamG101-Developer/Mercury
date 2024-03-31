@@ -243,8 +243,8 @@ class ClientConnectionManager(ConnectionManager):
     def _handle_invite_ack(self, addr: IPv6Address, data: bytes) -> None:
         # Load the chat username into the dictionary, with an empty key (no KEX yet)
         chat_receiver_id = data[:DIGEST_SIZE]
-        chat_receiver_certificate = data[DIGEST_SIZE:DIGEST_SIZE + RSA_CERTIFICATE_SIZE]
-        kem_wrapped_shared_secret = data[DIGEST_SIZE + RSA_CERTIFICATE_SIZE:DIGEST_SIZE + RSA_CERTIFICATE_SIZE + RSA_KEM_SIZE]
+        chat_receiver_certificate = data[:DIGEST_SIZE + RSA_CERTIFICATE_SIZE]
+        kem_wrapped_shared_secret = data[RSA_CERTIFICATE_SIZE:DIGEST_SIZE + RSA_CERTIFICATE_SIZE + RSA_KEM_SIZE]
         signed_kem_wrapped_shared_secret = data[-RSA_SIGNATURE_SIZE:]
 
         print(chat_receiver_id)
