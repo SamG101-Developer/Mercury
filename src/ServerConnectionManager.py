@@ -50,7 +50,7 @@ class ServerConnectionManager(ConnectionManager):
         os.mkdir("src/_server_keys")
         open("src/_server_keys/private_key.pem", "wb").write(secret_pem)
         open("src/_server_keys/public_key.pem", "wb").write(public_pem)
-        open("src/_server_keys/node_info.json", "w").write("[]")
+        open("src/_server_keys/node_info.json", "w").write("{}")
 
     def _load_key_pair(self) -> None:
         # Load the secret and public key from disk.
