@@ -1,5 +1,6 @@
-import time, os
+import json, time, os
 from ipaddress import IPv6Address
+from threading import Lock
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -18,6 +19,8 @@ class ServerConnectionManager(ConnectionManager):
     _node_pub_keys: dict[bytes, bytes]   # ID -> Public key
     _node_certs: dict[bytes, bytes]      # ID -> Certificate
     _message_queue: dict[bytes, dict[bytes, tuple[bytes, bytes]]]  # ID -> {message_id -> (sender, message)}
+
+    JSON_LOCK = Lock()
 
     def __init__(self):
         super().__init__(is_server=True)
@@ -47,13 +50,20 @@ class ServerConnectionManager(ConnectionManager):
         os.mkdir("src/_server_keys")
         open("src/_server_keys/private_key.pem", "wb").write(secret_pem)
         open("src/_server_keys/public_key.pem", "wb").write(public_pem)
+        open("src/_server_keys/node_info.json", "w").write("[]")
 
     def _load_key_pair(self) -> None:
         # Load the secret and public key from disk.
         secret_pem = open("src/_server_keys/private_key.pem", "rb").read()
         public_pem = open("src/_server_keys/public_key.pem", "rb").read()
+        node_info = json.load(open("src/_server_keys/node_info.json"))
+
         self._secret_key = load_pem_private_key(secret_pem, password=None)
         self._public_key = load_pem_public_key(public_pem)
+
+        with ServerConnectionManager.JSON_LOCK:
+            self._node_pub_keys = {k: v["public_key"] for k, v in node_info.items()}
+            self._node_certs = {k: v["certificate"] for k, v in node_info.items()}
 
     def _handle_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         match command:
@@ -116,8 +126,18 @@ class ServerConnectionManager(ConnectionManager):
             algorithm=hashes.SHA256())
 
         self._node_pub_keys[node_username] = node_public_key
-        self._node_certs[node_username] = certificate_raw
+        self._node_certs[node_username]    = certificate_sig + certificate_raw
         print(f"\tGenerated certificate for {node_username}")
+
+        # Add the node to the json list of nodes.
+        with ServerConnectionManager.JSON_LOCK:
+            # todo: prevent double-registering
+            saved_node_info = json.load(open("src/_server_keys/node_info.json"))
+            saved_node_info[node_username] = {
+                "public_key": node_public_key,
+                "certificate": certificate_sig + certificate_raw,
+            }
+            json.dump(saved_node_info, open("src/_server_keys/node_info.json", "w"))
 
         # Send the certificate to the node.
         certificate = certificate_sig + certificate_raw
