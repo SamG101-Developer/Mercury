@@ -7,10 +7,9 @@ from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.exceptions import InvalidSignature
 
-from ConnectionManager import ConnectionManager
-from ConnectionProtocol import ConnectionProtocol
-
-from Crypto import *
+from src.ConnectionManager import ConnectionManager
+from src.ConnectionProtocol import ConnectionProtocol
+from src.Crypto import *
 
 SERVER_IP = IPv6Address("")
 

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-class MessageType:
+class MessageType(Enum):
     Text = 0
     Image = 1
     Video = 2

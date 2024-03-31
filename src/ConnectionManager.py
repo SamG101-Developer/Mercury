@@ -3,7 +3,7 @@ from ipaddress import IPv6Address
 from threading import Thread
 import socket
 
-from ConnectionProtocol import ConnectionProtocol
+from src.ConnectionProtocol import ConnectionProtocol
 
 
 class ConnectionManager(ABC):

@@ -1,13 +1,13 @@
-import time
+import time, os
 from ipaddress import IPv6Address
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key, Encoding, PrivateFormat, NoEncryption, PublicFormat
 from cryptography.exceptions import InvalidSignature
 
-from ConnectionManager import ConnectionManager
-from ConnectionProtocol import ConnectionProtocol
-from Crypto import *
+from src.ConnectionManager import ConnectionManager
+from src.ConnectionProtocol import ConnectionProtocol
+from src.Crypto import *
 
 
 class ServerConnectionManager(ConnectionManager):
@@ -24,7 +24,7 @@ class ServerConnectionManager(ConnectionManager):
         self._node_ips = {}
 
         # Either load the key pair from disk or generate a new one.
-        if len(open("private_key.pem", "r").readlines()) == 0:
+        if not os.path.exists("src/_my_keys/private_key.pem"):
             self._generate_and_serialize_key_pair()
         else:
             self._load_key_pair()

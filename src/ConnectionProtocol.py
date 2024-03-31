@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class ConnectionProtocol(Enum):
     REGISTER = 0b00000001
     REGISTER_ACK_AND_CERT = 0b00000010

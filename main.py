@@ -1,10 +1,11 @@
 from argparse import ArgumentParser
 from threading import Thread
+import sys
 
 
 def main():
     # Create the argument parser
-    parser = ArgumentParser()
+    parser = ArgumentParser(description="Run the application as a server or client.")
 
     # Either run as server or client (must choose one)
     group = parser.add_mutually_exclusive_group(required=True)
@@ -16,15 +17,17 @@ def main():
 
     # Run the server or client
     if args.server:
-        from ServerConnectionManager import ServerConnectionManager
+        from src.ServerConnectionManager import ServerConnectionManager
         run(ServerConnectionManager)
     else:
-        from ClientConnectionManager import ClientConnectionManager
+        from src.ClientConnectionManager import ClientConnectionManager
         run(ClientConnectionManager)
 
 
 def run(instance: type):
     Thread(target=instance).start()
+    while True:
+        pass
 
 
 if __name__ == "__main__":
