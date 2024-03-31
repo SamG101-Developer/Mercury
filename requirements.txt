@@ -1,2 +1,2 @@
 cryptography==42.0.5
-PyQt6==6.6.1
+PyQt5==5.15.10
