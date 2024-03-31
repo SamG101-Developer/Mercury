@@ -81,6 +81,11 @@ class ServerConnectionManager(ConnectionManager):
             case ConnectionProtocol.ERROR:
                 ...
 
+            # Unknown
+            case _:
+                print(f"Unknown command: {command}")
+                print(f"Data: {data}")
+
     def _handle_client_register(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the node's IP address, ID (username), and public key.
         node_ip = addr.exploded

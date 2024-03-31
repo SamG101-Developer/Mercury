@@ -12,10 +12,11 @@ class ConnectionManager(ABC):
     def __init__(self):
         # Create the IPv6 socket
         self._server_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-        self._server_socket.bind(("::", 5000))
+        self._server_socket.bind(("::", 20000))
         Thread(target=self._listen).start()
 
     def _listen(self) -> None:
+        print("Listening for incoming connections...")
         while True:
             data, addr = self._server_socket.recvfrom(1024)
             command = ConnectionProtocol(data[0])
@@ -27,3 +28,4 @@ class ConnectionManager(ABC):
 
     def _send_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         data = command.value.to_bytes(1, "big") + data
+        self._server_socket.sendto(data, (addr, 20000))
