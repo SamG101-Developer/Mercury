@@ -1,2 +1,2 @@
 cryptography==42.0.5
-pyqt6==6.6.1
+PySide6==6.6.3
