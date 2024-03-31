@@ -1,7 +1,8 @@
 import os
 from ipaddress import IPv6Address
 
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat, NoEncryption
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -146,8 +147,19 @@ class ClientConnectionManager(ConnectionManager):
 
         # Create a shared secret, KEM it and sign it.
         shared_secret = os.urandom(32)
-        kem_wrapped_shared_secret = load_pem_public_key(chat_initiator_public_key).encrypt(shared_secret)
-        signed_kem_wrapped_shared_secret = self._secret_key.sign(kem_wrapped_shared_secret)
+        kem_wrapped_shared_secret = load_pem_public_key(chat_initiator_public_key).encrypt(
+            plaintext=shared_secret,
+            padding=padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None))
+
+        signed_kem_wrapped_shared_secret = self._secret_key.sign(
+            data=kem_wrapped_shared_secret,
+            padding=padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH),
+            algorithm=hashes.SHA256())
 
         # Send the signed KEM to the chat initiator.
         self._chat_info[chat_initiator_username] = (shared_secret, chat_initiator_public_key, True)
@@ -175,7 +187,13 @@ class ClientConnectionManager(ConnectionManager):
         load_pem_public_key(chat_receiver_public_key).verify(signed_kem_wrapped_shared_secret, kem_wrapped_shared_secret)
 
         # Decrypt the KEM and store the shared secret.
-        shared_secret = self._secret_key.decrypt(kem_wrapped_shared_secret)
+        shared_secret = self._secret_key.decrypt(
+            ciphertext=kem_wrapped_shared_secret,
+            padding=padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None))
+
         self._chat_info[chat_receiver_id] = (shared_secret, chat_receiver_public_key, True)
 
     def _handle_received_message(self, addr: IPv6Address, data: bytes) -> None:

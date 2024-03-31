@@ -1,7 +1,8 @@
 import time, os
 from ipaddress import IPv6Address
 
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key, Encoding, PrivateFormat, NoEncryption, PublicFormat
 from cryptography.exceptions import InvalidSignature
 
@@ -90,7 +91,7 @@ class ServerConnectionManager(ConnectionManager):
         # Split the data into the node's IP address, ID (username), and public key.
         node_ip = addr.exploded
         node_username = data[:DIGEST_SIZE]
-        node_public_key = load_pem_public_key(data[DIGEST_SIZE:]).public_bytes_raw()
+        node_public_key = data[DIGEST_SIZE:]
         print(f"Registering {node_username} with IP {node_ip}")
 
         # Check the username doesn't already exist.
@@ -100,7 +101,13 @@ class ServerConnectionManager(ConnectionManager):
 
         # Create the certificate for the node.
         certificate_raw = node_username + node_public_key
-        certificate_sig = self._secret_key.sign(certificate_raw)
+        certificate_sig = self._secret_key.sign(
+            data=certificate_raw,
+            padding=padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH),
+            algorithm=hashes.SHA256())
+
         self._node_pub_keys[node_username] = node_public_key
         print(f"\tGenerated certificate for {node_username}")
 
@@ -117,7 +124,14 @@ class ServerConnectionManager(ConnectionManager):
 
         # Verify the certificate is valid.
         try:
-            self._public_key.verify(certificate_sig, certificate_raw)
+            self._public_key.verify(
+                signature=certificate_sig,
+                data=certificate_raw,
+                padding=padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH),
+                algorithm=hashes.SHA256())
+
             client_username = certificate_raw[:DIGEST_SIZE]
             client_public_key = certificate_raw[DIGEST_SIZE:]
         except InvalidSignature:
