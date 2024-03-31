@@ -86,6 +86,7 @@ class ServerConnectionManager(ConnectionManager):
         node_ip = addr.exploded
         node_username = data[:DIGEST_SIZE]
         node_public_key = load_pem_public_key(data[DIGEST_SIZE:]).public_bytes_raw()
+        print(f"Registering {node_username} with IP {node_ip}")
 
         # Check the username doesn't already exist.
         if node_username in self._node_ips:
@@ -96,6 +97,7 @@ class ServerConnectionManager(ConnectionManager):
         certificate_raw = node_username + node_public_key
         certificate_sig = self._secret_key.sign(certificate_raw)
         self._node_pub_keys[node_username] = node_public_key
+        print(f"\tGenerated certificate for {node_username}")
 
         # Send the certificate to the node.
         certificate = certificate_sig + certificate_raw

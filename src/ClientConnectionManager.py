@@ -42,12 +42,14 @@ class ClientConnectionManager(ConnectionManager):
         self._username = hashed_username
         self._secret_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         self._public_key = self._secret_key.public_key()
+        print("Generated asymmetric RSA key pair")
 
         # Save the key pair to disk.
         secret_pem = self._secret_key.private_bytes(encoding=Encoding.PEM, format=PrivateFormat.PKCS8, encryption_algorithm=NoEncryption())
         public_pem = self._public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.PKCS1)
         open("src/_my_keys/private_key.pem", "wb").write(secret_pem)
         open("src/_my_keys/public_key.pem", "wb").write(public_pem)
+        print("\tRegistering with the server...")
 
         # Send the registration command to the server.
         self._send_command(ConnectionProtocol.REGISTER, SERVER_IP, hashed_username + public_pem)
