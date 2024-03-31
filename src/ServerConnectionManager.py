@@ -1,6 +1,7 @@
 import json, time, os
 from ipaddress import IPv6Address
 from threading import Lock
+from base64 import b64encode, b64decode
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -62,8 +63,8 @@ class ServerConnectionManager(ConnectionManager):
         self._public_key = load_pem_public_key(public_pem)
 
         with ServerConnectionManager.JSON_LOCK:
-            self._node_pub_keys = {k: v["public_key"] for k, v in node_info.items()}
-            self._node_certs = {k: v["certificate"] for k, v in node_info.items()}
+            self._node_pub_keys = {b64decode(k.encode()): v["public_key"] for k, v in node_info.items()}
+            self._node_certs = {b64decode(k.encode()): v["certificate"] for k, v in node_info.items()}
 
     def _handle_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         match command:
@@ -133,7 +134,7 @@ class ServerConnectionManager(ConnectionManager):
         with ServerConnectionManager.JSON_LOCK:
             # todo: prevent double-registering
             saved_node_info = json.load(open("src/_server_keys/node_info.json"))
-            saved_node_info[node_username] = {
+            saved_node_info[b64encode(node_username).decode()] = {
                 "public_key": node_public_key,
                 "certificate": certificate_sig + certificate_raw,
             }
