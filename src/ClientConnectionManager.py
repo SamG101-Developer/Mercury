@@ -226,6 +226,11 @@ class ClientConnectionManager(ConnectionManager):
                 salt_length=padding.PSS.MAX_LENGTH),
             algorithm=hashes.SHA256())
 
+        print(self._username)
+        print(self._cert)
+        print(kem_wrapped_shared_secret)
+        print(signed_kem_wrapped_shared_secret)
+
         # Send the signed KEM to the chat initiator.
         self._chat_info[chat_initiator_username] = ChatInfo(
             shared_secret=shared_secret,
@@ -242,6 +247,11 @@ class ClientConnectionManager(ConnectionManager):
         chat_receiver_certificate        = data[pre:(pre := pre + RSA_CERTIFICATE_SIZE + RSA_SIGNATURE_SIZE)]
         kem_wrapped_shared_secret        = data[pre:(pre := pre + RSA_KEM_SIZE)]
         signed_kem_wrapped_shared_secret = data[pre:]
+
+        print(chat_receiver_id)
+        print(chat_receiver_certificate)
+        print(kem_wrapped_shared_secret)
+        print(signed_kem_wrapped_shared_secret)
 
         # Verify the recipient's certificate is valid.
         try:
