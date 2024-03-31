@@ -67,6 +67,8 @@ class ClientConnectionManager(ConnectionManager):
         self._send_command(ConnectionProtocol.REGISTER, SERVER_IP, hashed_username + public_pem)
 
     def tell_server_client_is_online(self) -> None:
+        print("Notifying server that client is online.")
+
         # Tell the client that the node with this username is now online.
         challenge_raw = str(time.time()).zfill(TIME_LENGTH).encode()
         challenge_sig = self._secret_key.sign(
@@ -168,6 +170,7 @@ class ClientConnectionManager(ConnectionManager):
     def _handle_client_online_ack(self) -> None:
         # Mark the server as ready.
         self._server_ready = True
+        print("Server ready for communication.")
 
     def _prepare_for_solo_chat(self, addr: IPv6Address, data: bytes) -> None:
         # Get the chat initiator's username and public key.

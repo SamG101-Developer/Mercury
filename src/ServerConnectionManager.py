@@ -127,12 +127,6 @@ class ServerConnectionManager(ConnectionManager):
         challenge_sig = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE:RSA_SIGNATURE_SIZE * 2 + RSA_CERTIFICATE_SIZE]
         challenge_raw = data[RSA_SIGNATURE_SIZE * 2 + RSA_CERTIFICATE_SIZE:]
 
-        print(data)
-        print(certificate_sig)
-        print(certificate_raw)
-        print(challenge_sig)
-        print(challenge_raw)
-
         # Verify the certificate is valid.
         try:
             self._public_key.verify(
@@ -166,6 +160,8 @@ class ServerConnectionManager(ConnectionManager):
         except AssertionError:
             self._send_command(ConnectionProtocol.ERROR, addr, b"Challenge expired.")
             return
+
+        print("here?")
 
         # Store the client's IP address, and send an acknowledgement.
         self._node_ips[client_username] = addr
