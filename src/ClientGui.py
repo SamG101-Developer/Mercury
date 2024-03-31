@@ -33,6 +33,7 @@ class ClientGui(QWidget):
         self.setSizePolicy(policy)
 
         self._register_container = None
+        self.show()
 
     def show_register(self, func):
         self._register_container = QWidget()
@@ -148,15 +149,15 @@ class PersonGui(QWidget):
             self._hover_animation.start()
         return super().event(event)
 
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    sys.excepthook = lambda *args: sys.__excepthook__(*args)
-    window = ClientGui()
-
-    for x in range(100):
-        window.add_person(b"Person-" + str(x).encode(), b"")
-
-    window.show()
-
-    sys.exit(app.exec())
+#
+# if __name__ == "__main__":
+#     app = QApplication(sys.argv)
+#     sys.excepthook = lambda *args: sys.__excepthook__(*args)
+#     window = ClientGui()
+#
+#     for x in range(100):
+#         window.add_person(b"Person-" + str(x).encode(), b"")
+#
+#     window.show()
+#
+#     sys.exit(app.exec())

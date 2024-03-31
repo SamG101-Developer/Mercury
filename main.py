@@ -2,6 +2,8 @@ from argparse import ArgumentParser
 from threading import Thread
 import sys
 
+from PyQt6.QtWidgets import QApplication
+
 
 def main():
     # Create the argument parser
@@ -25,12 +27,9 @@ def main():
 
 
 def run(instance: type):
-    Thread(target=instance).start()
-    try:
-        while True:
-            pass
-    except (KeyboardInterrupt, SystemExit):
-        sys.exit(0)
+    application = QApplication(sys.argv)
+    instance()
+    sys.exit(application.exec())
 
 
 if __name__ == "__main__":
