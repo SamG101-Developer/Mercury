@@ -43,7 +43,7 @@ class ClientConnectionManager(ConnectionManager):
         self._chat_info = {}
         self._chat_processes = {}
 
-        Thread(target=self.boot_sequence).start()
+        self.boot_sequence()
 
         while True:
             command = input("Cmd > ")
