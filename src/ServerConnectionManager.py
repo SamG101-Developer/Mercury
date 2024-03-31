@@ -124,8 +124,8 @@ class ServerConnectionManager(ConnectionManager):
         # Split the data into node's certificate and random signature.
         certificate_sig = data[:RSA_SIGNATURE_SIZE]
         certificate_raw = data[RSA_SIGNATURE_SIZE:RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE]
-        challenge_sig = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE:RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE + TIME_LENGTH]
-        challenge_raw = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE + TIME_LENGTH:]
+        challenge_sig = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE:RSA_SIGNATURE_SIZE * 2 + RSA_CERTIFICATE_SIZE]
+        challenge_raw = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE * 2:]
 
         print(certificate_raw)
         print(challenge_raw)
@@ -148,7 +148,14 @@ class ServerConnectionManager(ConnectionManager):
 
         # Use the signature to verify the client's identity.
         try:
-            client_public_key.verify(challenge_sig, challenge_raw)
+            client_public_key = load_pem_public_key(client_public_key)
+            client_public_key.verify(
+                signature=challenge_sig,
+                data=challenge_raw,
+                padding=padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH),
+                algorithm=hashes.SHA256())
             assert time.time() - int.from_bytes(challenge_raw, "big") < 60
         except InvalidSignature:
             self._send_command(ConnectionProtocol.ERROR, addr, b"Invalid challenge signature.")
