@@ -124,8 +124,8 @@ class ServerConnectionManager(ConnectionManager):
         # Split the data into node's certificate and random signature.
         certificate_sig = data[:RSA_SIGNATURE_SIZE]
         certificate_raw = data[RSA_SIGNATURE_SIZE:RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE]
-        challenge_sig = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE:RSA_SIGNATURE_SIZE * 2 + RSA_CERTIFICATE_SIZE]
-        challenge_raw = data[RSA_SIGNATURE_SIZE * 2 + RSA_CERTIFICATE_SIZE:]
+        challenge_sig = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE:RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE + TIME_LENGTH]
+        challenge_raw = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE + TIME_LENGTH:]
 
         # Verify the certificate is valid.
         try:
