@@ -1,4 +1,6 @@
-import threading, time, os
+import subprocess
+import time, os
+from dataclasses import dataclass
 from ipaddress import IPv6Address
 from threading import Thread
 
@@ -12,29 +14,40 @@ from cryptography.exceptions import InvalidSignature
 from src.ConnectionManager import ConnectionManager
 from src.ConnectionProtocol import ConnectionProtocol
 from src.Crypto import *
-# from src.ClientGui import ClientGui
 
 
 SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 
 
+@dataclass(kw_only=True)
+class ChatInfo:
+    shared_secret: bytes
+    public_key: bytes
+    ready: bool
+    process: subprocess.Popen
+
+
 class ClientConnectionManager(ConnectionManager):
     _server_ready: bool
     _cert = None
-    _chat_info: dict[bytes, tuple[bytes, bytes, bool]]  # ID -> (Shared secret, Public key, Ready)
+    _chat_info: dict[bytes, ChatInfo]  # ID -> (Shared secret, Public key, Ready)
     _username: bytes
     _secret_key: rsa.RSAPrivateKey
     _public_key: rsa.RSAPublicKey
     _chats: dict[bytes, list[bytes]]  # ID -> [Raw Message]
-    # _gui: ClientGui
 
     def __init__(self):
         super().__init__()
         self._server_ready = False
         self._username = b""
+        self._chat_info = {}
+        self._chat_processes = {}
 
-        # self._gui = ClientGui()
         Thread(target=self.boot_sequence).start()
+
+        while True:
+            command = input("Cmd > ")
+            self._handle_local_command(command)
 
     def boot_sequence(self):
         self.register_to_server()
@@ -53,7 +66,6 @@ class ClientConnectionManager(ConnectionManager):
             return
 
         os.mkdir("src/_my_keys")
-        # self._gui.show_register(self.register_to_server_internal)
         self.register_to_server_internal(input("Username: "))
 
     def register_to_server_internal(self, username: str) -> None:
@@ -76,7 +88,6 @@ class ClientConnectionManager(ConnectionManager):
         self._send_command(ConnectionProtocol.REGISTER, SERVER_IP, hashed_username + public_pem, to_server=True)
 
     def tell_server_client_is_online(self) -> None:
-        # self._gui.hide_register()
         print("Notifying server that client is online.")
 
         # Tell the client that the node with this username is now online.
@@ -96,7 +107,7 @@ class ClientConnectionManager(ConnectionManager):
         while not self._server_ready:
             pass
 
-    def send_message_to(self, message: bytes, recipient_id: bytes) -> None:
+    def _send_message_to(self, message: bytes, recipient_id: bytes) -> None:
         # Get the recipient's shared secret and public key.
         shared_secret, public_key, ready = self._chat_info[recipient_id]
 
@@ -108,6 +119,17 @@ class ClientConnectionManager(ConnectionManager):
         # Encrypt the message and send it.
         encrypted_message = self._encrypt_message(shared_secret, message)
         self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, self._username + recipient_id + encrypted_message, to_server=True)
+
+    def _handle_local_command(self, command: str) -> None:
+        if not " " in command:
+            self._handle_error(IPv6Address("::1"), b"Invalid local command.")
+
+        command, data = command.split(" ", 1)
+
+        match command:
+            # When the user wants to message someone
+            case "chat":
+                Thread(target=self._open_chat_with, args=(data, )).start()
 
     def _handle_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         match command:
@@ -205,7 +227,12 @@ class ClientConnectionManager(ConnectionManager):
             algorithm=hashes.SHA256())
 
         # Send the signed KEM to the chat initiator.
-        self._chat_info[chat_initiator_username] = (shared_secret, chat_initiator_public_key, True)
+        self._chat_info[chat_initiator_username] = ChatInfo(
+            shared_secret=shared_secret,
+            public_key=chat_initiator_public_key,
+            ready=True,
+            process=None)
+
         self._send_command(ConnectionProtocol.INVITE_ACK, chat_initiator_ip_address, self._username + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret)
 
     def _handle_invite_ack(self, addr: IPv6Address, data: bytes) -> None:
@@ -232,7 +259,7 @@ class ClientConnectionManager(ConnectionManager):
             return
 
         # Verify the signed KEM is valid.
-        chat_receiver_public_key = self._chat_info[chat_receiver_id][1]
+        chat_receiver_public_key = self._chat_info[chat_receiver_id].public_key
         load_pem_public_key(chat_receiver_public_key).verify(
             signature=signed_kem_wrapped_shared_secret,
             data=kem_wrapped_shared_secret,
@@ -249,7 +276,11 @@ class ClientConnectionManager(ConnectionManager):
                 algorithm=hashes.SHA256(),
                 label=None))
 
-        self._chat_info[chat_receiver_id] = (shared_secret, chat_receiver_public_key, True)
+        self._chat_info[chat_receiver_id] = ChatInfo(
+            shared_secret=shared_secret,
+            public_key=chat_receiver_public_key,
+            ready=True,
+            process=None)
 
     def _handle_received_message(self, addr: IPv6Address, data: bytes) -> None:
         # Extract the message ID, sender, and encrypted message.
@@ -258,9 +289,42 @@ class ClientConnectionManager(ConnectionManager):
         encrypted_message = data[DIGEST_SIZE * 2:]
 
         # Decrypt the message and store it.
-        shared_secret = self._chat_info[message_id][0]
+        shared_secret = self._chat_info[message_id].shared_secret
         message = self._decrypt_message(shared_secret, encrypted_message)
         self._chats[message_id].append(sender + message)
+
+        # Put the message in the chat window if there is one.
+        if self._chat_info[message_id].process:
+            self._chat_info[message_id].process.stdin.write(f"{sender}: {message}\n")
+            self._chat_info[message_id].process.stdin.flush()
+
+    def _open_chat_with(self, data: str) -> None:
+        # Get the recipient id.
+        recipient_id = HASH_ALGORITHM(data.encode()).digest()
+
+        # If the recipient is not known, invite them to chat.
+        if recipient_id not in self._chat_info.keys():
+            self._send_command(ConnectionProtocol.SOLO_INVITE, SERVER_IP, recipient_id, to_server=True)
+
+            # Wait until ready to chat with them.
+            while recipient_id not in self._chat_info.keys() and not self._chat_info[recipient_id].ready:
+                pass
+
+        # Create the message window (as a command line window).
+        process = subprocess.Popen(
+            args=["cmd.exe" if os.name == "nt" else "bash"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True)
+        self._chat_info[recipient_id].process = process
+
+        while True:
+            process.stdin.write("Message > ")
+            process.stdin.flush()
+            message = process.stdout.readline().strip()
+
+            self._send_message_to(message.encode(), recipient_id)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")

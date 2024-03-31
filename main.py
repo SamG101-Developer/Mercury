@@ -1,5 +1,8 @@
 from argparse import ArgumentParser
 
+from src.ServerConnectionManager import ServerConnectionManager
+from src.ClientConnectionManager import ClientConnectionManager
+
 
 def main():
     # Create the argument parser
@@ -15,20 +18,16 @@ def main():
 
     # Run the server or client
     if args.server:
-        from src.ServerConnectionManager import ServerConnectionManager
         run(ServerConnectionManager)
     else:
-        from src.ClientConnectionManager import ClientConnectionManager
         run(ClientConnectionManager)
 
 
 def run(instance: type):
-    # sys.excepthook = lambda *args: sys.__excepthook__(*args)
-    # application = QApplication(sys.argv)
     instance()
-    # sys.exit(application.exec())
 
-    while True:
+    # Do nothing for the server. The client has its own command interface constantly being listened to.
+    while instance == ServerConnectionManager:
         pass
 
 
