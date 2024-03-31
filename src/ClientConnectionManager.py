@@ -41,7 +41,7 @@ class ClientConnectionManager(ConnectionManager):
             self._secret_key = load_pem_private_key(open("src/_my_keys/private_key.pem", "rb").read(), password=None)
             self._public_key = load_pem_public_key(open("src/_my_keys/public_key.pem", "rb").read())
             self._username = open("src/_my_keys/identifier.txt", "rb").read()
-            self._cert = open("src/_server_keys/certificate.pem", "rb").read()
+            self._cert = open("src/_my_keys/certificate.pem", "rb").read()
             self._handle_error(IPv6Address("::1"), b"Already registered.")
             return
 
