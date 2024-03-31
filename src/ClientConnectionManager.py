@@ -244,7 +244,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Verify the recipient's certificate is valid.
         try:
-            server_public_key_raw = open("_server_keys/public_key.pem", "rb").read()
+            server_public_key_raw = open("src/_server_keys/public_key.pem", "rb").read()
             server_public_key: rsa.RSAPublicKey = load_pem_public_key(server_public_key_raw)
             server_public_key.verify(
                 signature=chat_receiver_certificate,
