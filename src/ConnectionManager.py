@@ -20,7 +20,8 @@ class ConnectionManager(ABC):
         while True:
             data, addr = self._server_socket.recvfrom(1024)
             command = ConnectionProtocol(data[0])
-            Thread(target=self._handle_command, args=(command, addr[0], data[1:])).start()
+            addr = IPv6Address(addr[0])
+            Thread(target=self._handle_command, args=(command, addr, data[1:])).start()
 
     @abstractmethod
     def _handle_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:

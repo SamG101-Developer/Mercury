@@ -26,8 +26,11 @@ def main():
 
 def run(instance: type):
     Thread(target=instance).start()
-    while True:
-        pass
+    try:
+        while True:
+            pass
+    except (KeyboardInterrupt, SystemExit):
+        sys.exit(0)
 
 
 if __name__ == "__main__":
