@@ -226,11 +226,6 @@ class ClientConnectionManager(ConnectionManager):
                 salt_length=padding.PSS.MAX_LENGTH),
             algorithm=hashes.SHA256())
 
-        print(self._username)
-        print(self._cert)
-        print(kem_wrapped_shared_secret)
-        print(signed_kem_wrapped_shared_secret)
-
         # Send the signed KEM to the chat initiator.
         self._chat_info[chat_initiator_username] = ChatInfo(
             shared_secret=shared_secret,
@@ -244,22 +239,17 @@ class ClientConnectionManager(ConnectionManager):
     def _handle_invite_ack(self, addr: IPv6Address, data: bytes) -> None:
         # Load the chat username into the dictionary, with an empty key (no KEX yet)
         chat_receiver_id                 = data[:(pre := DIGEST_SIZE)]
-        chat_receiver_certificate        = data[pre:(pre := pre + RSA_CERTIFICATE_SIZE + RSA_SIGNATURE_SIZE)]
+        chat_receiver_certificate_sig    = data[pre:(pre := pre + RSA_SIGNATURE_SIZE)]
+        chat_receiver_certificate_raw    = data[pre:(pre := pre + RSA_CERTIFICATE_SIZE)]
         kem_wrapped_shared_secret        = data[pre:(pre := pre + RSA_KEM_SIZE)]
         signed_kem_wrapped_shared_secret = data[pre:]
-
-        print(chat_receiver_id)
-        print(chat_receiver_certificate)
-        print(kem_wrapped_shared_secret)
-        print(signed_kem_wrapped_shared_secret)
 
         # Verify the recipient's certificate is valid.
         try:
             server_public_key_raw = open("src/_server_keys/public_key.pem", "rb").read()
-            server_public_key: rsa.RSAPublicKey = load_pem_public_key(server_public_key_raw)
-            server_public_key.verify(
-                signature=chat_receiver_certificate,
-                data=self._cert,
+            load_pem_public_key(server_public_key_raw).verify(
+                signature=chat_receiver_certificate_sig,
+                data=chat_receiver_certificate_raw,
                 padding=padding.PSS(
                     mgf=padding.MGF1(hashes.SHA256()),
                     salt_length=padding.PSS.MAX_LENGTH),
@@ -270,9 +260,9 @@ class ClientConnectionManager(ConnectionManager):
             return
 
         # Verify the signed KEM is valid.
-        chat_receiver_public_key = self._chat_info[chat_receiver_id].public_key
+        chat_receiver_public_key_raw = self._chat_info[chat_receiver_id].public_key
         try:
-            load_pem_public_key(chat_receiver_public_key).verify(
+            load_pem_public_key(chat_receiver_public_key_raw).verify(
                 signature=signed_kem_wrapped_shared_secret,
                 data=kem_wrapped_shared_secret,
                 padding=padding.PSS(
@@ -293,7 +283,7 @@ class ClientConnectionManager(ConnectionManager):
 
         self._chat_info[chat_receiver_id] = ChatInfo(
             shared_secret=shared_secret,
-            public_key=chat_receiver_public_key,
+            public_key=chat_receiver_public_key_raw,
             ready=True,
             process=None)
 
