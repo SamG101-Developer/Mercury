@@ -127,8 +127,9 @@ class ServerConnectionManager(ConnectionManager):
         challenge_sig = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE:RSA_SIGNATURE_SIZE * 2 + RSA_CERTIFICATE_SIZE]
         challenge_raw = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE * 2:]
 
+        print(data)
         print(certificate_sig)
-        print(challenge_raw)
+        print(certificate_raw)
         print(challenge_sig)
         print(challenge_raw)
 
@@ -166,7 +167,7 @@ class ServerConnectionManager(ConnectionManager):
             self._send_command(ConnectionProtocol.ERROR, addr, b"Challenge expired.")
             return
 
-        # Store the client's IP address, and send an acknowledegment.
+        # Store the client's IP address, and send an acknowledgement.
         self._node_ips[client_username] = addr
         self._send_command(ConnectionProtocol.CLIENT_ONLINE_ACK, addr, b"")
 
