@@ -61,7 +61,8 @@ class ClientGui(QWidget):
         spacing = min(16, self.width() // 16)
 
         widget = QWidget()
-        widget.setLayout(QGridLayout(widget, spacing=spacing, contentsMargins=QMargins(spacing, spacing, spacing, spacing)))
+        widget.setLayout(QGridLayout(widget, spacing=spacing))
+        widget.layout().setContentsMargins(QMargins(spacing, spacing, spacing, spacing))
         self._people_container.addWidget(widget)
 
         circle = QPushButton(parent=self._page_indicator, clicked=lambda: self._set_page_index(self._page_indicator_circles.index(circle)))
