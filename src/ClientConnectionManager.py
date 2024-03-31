@@ -68,15 +68,16 @@ class ClientConnectionManager(ConnectionManager):
 
     def tell_server_client_is_online(self) -> None:
         # Tell the client that the node with this username is now online.
-        challenge = str(time.time()).zfill(TIME_LENGTH).encode()
-        challenge_signature = self._secret_key.sign(
-            data=challenge,
+        challenge_raw = str(time.time()).zfill(TIME_LENGTH).encode()
+        challenge_sig = self._secret_key.sign(
+            data=challenge_raw,
             padding=padding.PSS(
                 mgf=padding.MGF1(hashes.SHA256()),
                 salt_length=padding.PSS.MAX_LENGTH),
             algorithm=hashes.SHA256())
+        challenge = challenge_sig + challenge_raw
 
-        sending_data = self._cert + challenge_signature + challenge
+        sending_data = self._cert + challenge
         self._send_command(ConnectionProtocol.CLIENT_ONLINE, SERVER_IP, sending_data)
 
         # Wait for the server to be ready.
