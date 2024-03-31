@@ -238,14 +238,15 @@ class ClientConnectionManager(ConnectionManager):
             ready=True,
             process=None)
 
-        self._send_command(ConnectionProtocol.INVITE_ACK, chat_initiator_ip_address, self._username + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret)
+        sending_data = self._username + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
+        self._send_command(ConnectionProtocol.INVITE_ACK, chat_initiator_ip_address, sending_data)
 
     def _handle_invite_ack(self, addr: IPv6Address, data: bytes) -> None:
         # Load the chat username into the dictionary, with an empty key (no KEX yet)
-        chat_receiver_id = data[:DIGEST_SIZE]
-        chat_receiver_certificate = data[:DIGEST_SIZE + RSA_CERTIFICATE_SIZE]
-        kem_wrapped_shared_secret = data[RSA_CERTIFICATE_SIZE:DIGEST_SIZE + RSA_CERTIFICATE_SIZE + RSA_KEM_SIZE]
-        signed_kem_wrapped_shared_secret = data[-RSA_SIGNATURE_SIZE:]
+        chat_receiver_id                 = data[:(pre := DIGEST_SIZE)]
+        chat_receiver_certificate        = data[pre:(pre := pre + RSA_CERTIFICATE_SIZE + RSA_SIGNATURE_SIZE)]
+        kem_wrapped_shared_secret        = data[pre:(pre := pre + RSA_KEM_SIZE)]
+        signed_kem_wrapped_shared_secret = data[pre:]
 
         print(chat_receiver_id)
         print(chat_receiver_certificate)
