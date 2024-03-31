@@ -1,4 +1,5 @@
 import os
+import time
 from ipaddress import IPv6Address
 
 from cryptography.hazmat.primitives import hashes
@@ -67,7 +68,16 @@ class ClientConnectionManager(ConnectionManager):
 
     def tell_server_client_is_online(self) -> None:
         # Tell the client that the node with this username is now online.
-        self._send_command(ConnectionProtocol.CLIENT_ONLINE, SERVER_IP, self._username)
+        challenge = str(time.time()).zfill(TIME_LENGTH).encode()
+        challenge_signature = self._secret_key.sign(
+            data=challenge,
+            padding=padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH),
+            algorithm=hashes.SHA256())
+
+        sending_data = self._cert + challenge_signature + challenge
+        self._send_command(ConnectionProtocol.CLIENT_ONLINE, SERVER_IP, sending_data)
 
         # Wait for the server to be ready.
         while not self._server_ready:
