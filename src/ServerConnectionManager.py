@@ -112,6 +112,8 @@ class ServerConnectionManager(ConnectionManager):
                 mgf=padding.MGF1(hashes.SHA256()),
                 salt_length=padding.PSS.MAX_LENGTH),
             algorithm=hashes.SHA256())
+        print(len(certificate_sig))
+        print(len(certificate_raw))
 
         self._node_pub_keys[node_username] = node_public_key
         print(f"\tGenerated certificate for {node_username}")

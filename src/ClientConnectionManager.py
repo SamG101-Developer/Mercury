@@ -126,8 +126,8 @@ class ClientConnectionManager(ConnectionManager):
 
     def _handle_register_ack_and_cert(self, data: bytes) -> None:
         # Extract the certificate from the data.
-        certificate_sig = data[:114]
-        certificate_raw = data[114:]
+        certificate_sig = data[:RSA_SIGNATURE_SIZE]
+        certificate_raw = data[RSA_SIGNATURE_SIZE:]
 
         # Load the server's public key and verify the certificate.
         server_public_key = open("src/_server_keys/public_key.pem", "rb").read()
