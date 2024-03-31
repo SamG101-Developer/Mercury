@@ -133,9 +133,6 @@ class ClientConnectionManager(ConnectionManager):
         server_public_key = open("src/_server_keys/public_key.pem", "rb").read()
         server_public_key = load_pem_public_key(server_public_key)
 
-        print(certificate_sig)
-        print(certificate_raw)
-
         # If the certificate is valid, store it and set the server as ready.
         try:
             server_public_key.verify(
