@@ -157,7 +157,7 @@ class ClientConnectionManager(ConnectionManager):
                 algorithm=hashes.SHA256())
 
             self._cert = certificate_raw
-            open("src/_server_keys/certificate.pem", "wb").write(certificate_raw)
+            open("src/_my_keys/certificate.pem", "wb").write(certificate_raw)
             print("Certificate verified.")
 
         except InvalidSignature:

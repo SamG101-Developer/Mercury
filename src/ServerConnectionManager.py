@@ -127,6 +127,9 @@ class ServerConnectionManager(ConnectionManager):
         challenge_sig = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE:RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE + TIME_LENGTH]
         challenge_raw = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE + TIME_LENGTH:]
 
+        print(certificate_raw)
+        print(challenge_raw)
+
         # Verify the certificate is valid.
         try:
             self._public_key.verify(
