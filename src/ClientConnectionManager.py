@@ -11,7 +11,8 @@ from src.ConnectionManager import ConnectionManager
 from src.ConnectionProtocol import ConnectionProtocol
 from src.Crypto import *
 
-SERVER_IP = IPv6Address("")
+
+SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 
 
 class ClientConnectionManager(ConnectionManager):
