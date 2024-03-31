@@ -169,6 +169,10 @@ class ClientConnectionManager(ConnectionManager):
             case ConnectionProtocol.SEND_GROUP_MESSAGE:
                 ...
 
+            # When a node is online (told so by server, + their public key)
+            case ConnectionProtocol.NODE_IS_ONLINE:
+                self._handle_node_online(addr, data)
+
             case ConnectionProtocol.ERROR:
                 self._handle_error(addr, data)
 
@@ -259,8 +263,12 @@ class ClientConnectionManager(ConnectionManager):
             print("Invalid certificate.")
             return
 
-        # Verify the signed KEM is valid.
+        # Wait for the public key (should have already been received at this point)
+        while not self._chat_info[chat_receiver_id].public_key:
+            pass
         chat_receiver_public_key_raw = self._chat_info[chat_receiver_id].public_key
+
+        # Verify the signed KEM is valid.
         try:
             load_pem_public_key(chat_receiver_public_key_raw).verify(
                 signature=signed_kem_wrapped_shared_secret,
@@ -302,6 +310,32 @@ class ClientConnectionManager(ConnectionManager):
         if self._chat_info[message_id].process:
             self._chat_info[message_id].process.stdin.write(f"{sender}: {message}\n")
             self._chat_info[message_id].process.stdin.flush()
+
+    def _handle_node_online(self, addr: IPv6Address, data: bytes) -> None:
+        # Verify the node's certificate and extract the public key.
+        certificate_sig = data[:RSA_SIGNATURE_SIZE]
+        certificate_raw = data[RSA_SIGNATURE_SIZE:]
+
+        try:
+            server_public_key = open("src/_server_keys/public_key.pem", "rb").read()
+            load_pem_public_key(server_public_key).verify(
+                signature=certificate_sig,
+                data=certificate_raw,
+                padding=padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH),
+                algorithm=hashes.SHA256())
+        except InvalidSignature:
+            print("Invalid certificate.")
+            return
+
+        recipient_id = certificate_raw[:DIGEST_SIZE]
+        recipient_public_key = certificate_raw[-RSA_PUBLIC_KEY_PEM_SIZE:]
+
+        if recipient_id in self._chat_info.keys():
+            self._chat_info[recipient_id].public_key = recipient_public_key
+
+        # else: send error back?
 
     def _open_chat_with(self, data: str) -> None:
         # Get the recipient id.

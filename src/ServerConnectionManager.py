@@ -16,6 +16,7 @@ class ServerConnectionManager(ConnectionManager):
     _public_key: rsa.RSAPublicKey
     _node_ips: dict[bytes, IPv6Address]  # ID -> IP
     _node_pub_keys: dict[bytes, bytes]   # ID -> Public key
+    _node_certs: dict[bytes, bytes]      # ID -> Certificate
     _message_queue: dict[bytes, dict[bytes, tuple[bytes, bytes]]]  # ID -> {message_id -> (sender, message)}
 
     def __init__(self):
@@ -114,6 +115,7 @@ class ServerConnectionManager(ConnectionManager):
             algorithm=hashes.SHA256())
 
         self._node_pub_keys[node_username] = node_public_key
+        self._node_certs[node_username] = certificate_raw
         print(f"\tGenerated certificate for {node_username}")
 
         # Send the certificate to the node.
@@ -180,6 +182,8 @@ class ServerConnectionManager(ConnectionManager):
         if recipient_username not in self._node_ips:
             self._send_command(ConnectionProtocol.ERROR, addr, b"Recipient is not online.")
             return
+        else:
+            self._send_command(ConnectionProtocol.NODE_IS_ONLINE, addr, self._node_certs[recipient_username])
 
         # Create the invitation for the recipient.
         recipient_addr = self._node_ips[recipient_username]
