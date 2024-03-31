@@ -122,10 +122,10 @@ class ServerConnectionManager(ConnectionManager):
 
     def _handle_client_online(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into node's certificate and random signature.
-        certificate_sig = data[:114]
-        certificate_raw = data[114:228]
-        challenge_sig = data[228:342]
-        challenge_raw = data[342:]
+        certificate_sig = data[:RSA_SIGNATURE_SIZE]
+        certificate_raw = data[RSA_SIGNATURE_SIZE:RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE]
+        challenge_sig = data[RSA_SIGNATURE_SIZE + RSA_CERTIFICATE_SIZE:RSA_SIGNATURE_SIZE * 2 + RSA_CERTIFICATE_SIZE]
+        challenge_raw = data[RSA_SIGNATURE_SIZE * 2 + RSA_CERTIFICATE_SIZE:]
 
         # Verify the certificate is valid.
         try:
