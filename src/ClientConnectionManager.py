@@ -28,10 +28,13 @@ class ClientConnectionManager(ConnectionManager):
         super().__init__()
         self._server_ready = False
         self._username = b""
+        self.register_to_server()
 
     def register_to_server(self) -> None:
+        # Don't allow double registration.
         if os.path.exists("_my_keys/public_key.pem"):
             self._handle_error(IPv6Address("::1"), b"Already registered.")
+            return
 
         # Create a username (hash = ID), and generate a key pair.
         username = input("Username: ")
@@ -50,8 +53,10 @@ class ClientConnectionManager(ConnectionManager):
         self._send_command(ConnectionProtocol.REGISTER, SERVER_IP, hashed_username + public_pem)
 
     def tell_server_client_is_online(self) -> None:
+        # Tell the client that the node with this username is now online.
         self._send_command(ConnectionProtocol.CLIENT_ONLINE, SERVER_IP, self._username)
 
+        # Wait for the server to be ready.
         while not self._server_ready:
             pass
 
