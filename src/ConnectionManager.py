@@ -28,4 +28,4 @@ class ConnectionManager(ABC):
 
     def _send_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         data = command.value.to_bytes(1, "big") + data
-        self._server_socket.sendto(data, (addr, 20000))
+        self._server_socket.sendto(data, (addr.exploded, 20000))
