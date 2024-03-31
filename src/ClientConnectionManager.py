@@ -3,6 +3,7 @@ import time, os
 from dataclasses import dataclass
 from ipaddress import IPv6Address
 from threading import Thread
+from typing import Optional
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -23,7 +24,7 @@ SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 class ChatInfo:
     shared_secret: bytes
     ready: bool
-    process: subprocess.Popen
+    process: Optional[subprocess.Popen]
 
 
 class ClientConnectionManager(ConnectionManager):
@@ -41,7 +42,7 @@ class ClientConnectionManager(ConnectionManager):
         self._server_ready = False
         self._username = b""
         self._chat_info = {}
-        self._chat_processes = {}
+        self._kex_pub_keys = {}
 
         self.boot_sequence()
 
@@ -233,7 +234,6 @@ class ClientConnectionManager(ConnectionManager):
         # Send the signed KEM to the chat initiator.
         self._chat_info[chat_initiator_username] = ChatInfo(
             shared_secret=shared_secret,
-            public_key=chat_initiator_public_key,
             ready=True,
             process=None)
 
@@ -292,7 +292,6 @@ class ClientConnectionManager(ConnectionManager):
 
         self._chat_info[chat_receiver_id] = ChatInfo(
             shared_secret=shared_secret,
-            public_key=chat_receiver_public_key_raw,
             ready=True,
             process=None)
 
