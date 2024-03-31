@@ -76,11 +76,6 @@ class ClientConnectionManager(ConnectionManager):
                 salt_length=padding.PSS.MAX_LENGTH),
             algorithm=hashes.SHA256())
 
-        print(self._cert[:RSA_SIGNATURE_SIZE])
-        print(self._cert[RSA_SIGNATURE_SIZE:])
-        print(challenge_signature)
-        print(challenge)
-
         sending_data = self._cert + challenge_signature + challenge
         self._send_command(ConnectionProtocol.CLIENT_ONLINE, SERVER_IP, sending_data)
 
@@ -161,8 +156,8 @@ class ClientConnectionManager(ConnectionManager):
                     salt_length=padding.PSS.MAX_LENGTH),
                 algorithm=hashes.SHA256())
 
-            self._cert = certificate_sig + certificate_raw
-            open("src/_my_keys/certificate.pem", "wb").write(certificate_raw)
+            self._cert = data
+            open("src/_my_keys/certificate.pem", "wb").write(data)
             print("Certificate verified.")
 
         except InvalidSignature:
