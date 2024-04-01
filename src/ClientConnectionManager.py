@@ -384,11 +384,10 @@ class ClientConnectionManager(ConnectionManager):
         while recipient_id not in self._chat_info.keys():
             pass
 
-        # Create the message window (as a command line window), and save the process. The window may have been closed,
-        # but from this session; in this case, re-use the port.
-        if (port := self._chat_info[recipient_id].local_port) == -1:
-            port = str(20003 + len(self._chat_info))
-            self._chat_info[recipient_id].local_port = int(port)
+        # Create the message window (as a command line window), and save the process. Allow port re-use.
+        # if (port := self._chat_info[recipient_id].local_port) == -1:
+        port = str(20003 + list(self._chat_info.keys()).index(recipient_id))
+        self._chat_info[recipient_id].local_port = int(port)
 
         encoded_recipient_id = b64encode(recipient_id).decode()
         args = f"python src/ClientMessagingShell.py {port} {encoded_recipient_id}"
