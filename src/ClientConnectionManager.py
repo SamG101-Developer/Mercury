@@ -394,6 +394,7 @@ class ClientConnectionManager(ConnectionManager):
         subprocess.call(args=[args], shell=True)
 
         # If there is a queue of messages for the recipient, send them into the chat.
+        print("queued messages:", self._chats[recipient_id])
         for message in self._chats[recipient_id]:
             self._push_message_into_messaging_window(recipient_id, int(port), message.message_bytes)
 
