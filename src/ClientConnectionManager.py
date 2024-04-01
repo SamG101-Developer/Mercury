@@ -66,7 +66,7 @@ class ClientConnectionManager(ConnectionManager):
             print(f"Received message from {addr}: {message}")
             if addr[0] != "::1": continue
             encoded_recipient_id, message = message[:DIGEST_SIZE], message[DIGEST_SIZE:]
-            self._send_message_to(encoded_recipient_id, message)
+            self._send_message_to(message, encoded_recipient_id)
 
     def register_to_server(self) -> None:
         # Don't allow double registration.
