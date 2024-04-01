@@ -344,10 +344,12 @@ class ClientConnectionManager(ConnectionManager):
 
         # Put the message in the chat window if there is a process for the chat window, and it is alive.
         local_port = self._chat_info[sender_id].local_port
-        if not (
-                self._chat_info[sender_id].process is not None or
+        if (
+                self._chat_info[sender_id].process is None or
                 self._chat_info[sender_id].process.poll() is not None or
-                local_port != -1):
+                local_port == -1):
+            pass
+        else:
             self._push_message_into_messaging_window(sender_id, local_port, message)
 
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
