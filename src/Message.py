@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -9,8 +9,9 @@ class MessageType(Enum):
     File = 3
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Message:
-    message_type: MessageType
     message_bytes: bytes
-    other_info: dict[str, str]
+    am_i_sender: bool
+    message_type: MessageType = field(default=MessageType.Text)
+    other_info: dict[str, str] = field(default_factory=dict)

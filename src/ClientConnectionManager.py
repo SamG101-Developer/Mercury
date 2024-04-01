@@ -14,6 +14,7 @@ from cryptography.exceptions import InvalidSignature
 
 from src.ConnectionManager import ConnectionManager
 from src.ConnectionProtocol import ConnectionProtocol
+from src.Message import Message
 from src.Crypto import *
 
 
@@ -33,7 +34,7 @@ class ClientConnectionManager(ConnectionManager):
     _my_id: bytes
     _secret_key: rsa.RSAPrivateKey
     _public_key: rsa.RSAPublicKey
-    _chats: dict[bytes, list[bytes]]  # ID -> [Raw Message]
+    _chats: dict[bytes, list[Message]]  # ID -> [Raw Message]
 
     def __init__(self):
         super().__init__()
@@ -41,6 +42,7 @@ class ClientConnectionManager(ConnectionManager):
         self._my_id = b""
         self._chat_info = {}
         self._kex_pub_keys = {}
+        self._chats = {}
 
         self._load_chat_info()
         self._boot_sequence()
@@ -132,6 +134,7 @@ class ClientConnectionManager(ConnectionManager):
         chat = self._chat_info[recipient_id]
 
         # Encrypt the message and send it.
+        self._chats[recipient_id].append(Message(message_bytes=message, am_i_sender=True))
         encrypted_message = self._encrypt_message(chat.shared_secret, message)
 
         sending_data = recipient_id + encrypted_message
@@ -318,13 +321,13 @@ class ClientConnectionManager(ConnectionManager):
     def _handle_received_message(self, addr: IPv6Address, data: bytes) -> None:
         # Extract the message ID, recipient ID, and encrypted message.
         message_id = data[:DIGEST_SIZE]
-        recipient_id = data[DIGEST_SIZE:DIGEST_SIZE * 2]
+        sender_id = data[DIGEST_SIZE:DIGEST_SIZE * 2]
         encrypted_message = data[DIGEST_SIZE * 2:]
 
         # Decrypt the message and store it.
-        shared_secret = self._chat_info[recipient_id].shared_secret
+        shared_secret = self._chat_info[sender_id].shared_secret
         message = self._decrypt_message(shared_secret, encrypted_message)
-        self._chats[recipient_id].append(message)
+        self._chats[sender_id].append(Message(message_bytes=message, am_i_sender=False))
 
         # ACK the message.
         self._send_command(ConnectionProtocol.MESSAGE_ACK, SERVER_IP, message_id, to_server=True)
