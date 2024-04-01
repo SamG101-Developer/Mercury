@@ -153,7 +153,6 @@ class ClientConnectionManager(ConnectionManager):
         chat = self._chat_info[recipient_id]
 
         # Encrypt the message and send it.
-        print("added", message, "to", recipient_id, "queue (send).")
         self._chats[recipient_id].append(Message(message_bytes=message, am_i_sender=True))
         encrypted_message = self._encrypt_message(chat.shared_secret, self._my_username.encode() + b" > " + message + b"\n")
 
@@ -349,7 +348,6 @@ class ClientConnectionManager(ConnectionManager):
         # Decrypt the message and store it.
         shared_secret = self._chat_info[sender_id].shared_secret
         message = self._decrypt_message(shared_secret, encrypted_message)
-        print("added", message, "to", sender_id, "queue (recv).")
         self._chats[sender_id].append(Message(message_bytes=message, am_i_sender=False))
 
         # ACK the message.
@@ -413,6 +411,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # If there is a queue of messages for the recipient, send them into the chat.
         for message in self._chats[recipient_id].copy():
+            print("loading", message.message_bytes)
             self._push_message_into_messaging_window(recipient_id, int(port), message.message_bytes)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
