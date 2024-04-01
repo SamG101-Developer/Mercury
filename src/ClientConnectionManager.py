@@ -31,7 +31,6 @@ class ClientConnectionManager(ConnectionManager):
     _server_ready: bool
     _cert = None
     _chat_info: dict[bytes, ChatInfo]  # ID -> (Shared secret, Public key, Ready)
-    _kex_pub_keys: dict[bytes, bytes]  # ID -> Public Key
     _my_username: str
     _my_id: bytes
     _secret_key: rsa.RSAPrivateKey
@@ -45,7 +44,6 @@ class ClientConnectionManager(ConnectionManager):
         self._server_ready = False
         self._my_id = b""
         self._chat_info = {}
-        self._kex_pub_keys = {}
         self._chats = {}
 
         # Load any pre-known chat keys, and initiate the boot sequence.
@@ -190,8 +188,8 @@ class ClientConnectionManager(ConnectionManager):
                 self._handle_client_online_ack()
 
             # When the server tells the client that another node is accepting the chat request.
-            case ConnectionProtocol.INVITE_ACK:
-                self._handle_invite_ack(addr, data)
+            case ConnectionProtocol.SOLO_INVITE:
+                self._handle_solo_invite(addr, data)
 
             # When the server sends a message from a node to the client.
             case ConnectionProtocol.SEND_MESSAGE:
@@ -200,10 +198,6 @@ class ClientConnectionManager(ConnectionManager):
             # When the server confirms the creation of a group chat.
             case ConnectionProtocol.CREATE_GC_ACK:
                 self._handle_group_chat_creation_ack(addr, data)
-
-            # When the server tells the client to prepare for a solo chat.
-            case ConnectionProtocol.PREP_FOR_SOLO:
-                self._prepare_for_solo_chat(addr, data)
 
             # When the server tells the client to prepare for a group chat.
             case ConnectionProtocol.PREP_FOR_GC:
@@ -218,7 +212,7 @@ class ClientConnectionManager(ConnectionManager):
                 ...
 
             # When a node is online (told so by server, + their public key)
-            case ConnectionProtocol.NODE_IS_ONLINE:
+            case ConnectionProtocol.NODE_INFO:
                 self._handle_node_online(addr, data)
 
             case ConnectionProtocol.ERROR:
@@ -264,42 +258,7 @@ class ClientConnectionManager(ConnectionManager):
         self._chat_info[group_id] = ChatInfo(shared_secret=b"")
         self._chats[group_id] = []
 
-    def _prepare_for_solo_chat(self, addr: IPv6Address, data: bytes) -> None:
-        # Get the chat initiator's username and public key.
-        chat_initiator_id = data[:DIGEST_SIZE]
-        chat_initiator_public_key = data[DIGEST_SIZE:-IP_SIZE]
-        chat_initiator_ip_address = IPv6Address(data[-IP_SIZE:])
-
-        # Create a shared secret, KEM it and sign it.
-        shared_secret = os.urandom(32)
-        kem_wrapped_shared_secret = load_pem_public_key(chat_initiator_public_key).encrypt(
-            plaintext=shared_secret,
-            padding=padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None))
-
-        signed_kem_wrapped_shared_secret = self._secret_key.sign(
-            data=kem_wrapped_shared_secret,
-            padding=padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH),
-            algorithm=hashes.SHA256())
-
-        # Store the shared secret.
-        current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
-        current_stored_keys[b64encode(chat_initiator_id).decode()] = {"shared_secret": b64encode(shared_secret).decode()}
-        json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
-
-        # Load the shared secret into the chat info and create an empty chat list.
-        self._chat_info[chat_initiator_id] = ChatInfo(shared_secret=shared_secret)
-        self._chats[chat_initiator_id] = []
-
-        # Send the signed KEM to the chat initiator.
-        sending_data = self._my_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
-        self._send_command(ConnectionProtocol.INVITE_ACK, chat_initiator_ip_address, sending_data)
-
-    def _handle_invite_ack(self, addr: IPv6Address, data: bytes) -> None:
+    def _handle_solo_invite(self, addr: IPv6Address, data: bytes) -> None:
         # Load the chat username into the dictionary, with an empty key (no KEX yet)
         chat_receiver_id                 = data[:(pre := DIGEST_SIZE)]
         chat_receiver_certificate_sig    = data[pre:(pre := pre + RSA_SIGNATURE_SIZE)]
@@ -322,15 +281,9 @@ class ClientConnectionManager(ConnectionManager):
             print("Invalid certificate.")
             return
 
-        # Wait for the public key (should have already been received at this point)
-        while chat_receiver_id not in self._kex_pub_keys.keys():
-            pass
-        chat_receiver_public_key_raw = self._kex_pub_keys[chat_receiver_id]
-        del self._kex_pub_keys[chat_receiver_id]
-
         # Verify the signed KEM is valid.
         try:
-            load_pem_public_key(chat_receiver_public_key_raw).verify(
+            load_pem_public_key(open("src/_my_keys/public_key.pem", "rb").read()).verify(
                 signature=signed_kem_wrapped_shared_secret,
                 data=kem_wrapped_shared_secret,
                 padding=padding.PSS(
@@ -400,10 +353,39 @@ class ClientConnectionManager(ConnectionManager):
             print("Invalid certificate.")
             return
 
+        # Extract the id, public key and ip of the recipient.
         recipient_id = certificate_raw[:DIGEST_SIZE]
-        recipient_public_key = certificate_raw[-RSA_PUBLIC_KEY_PEM_SIZE:]
+        recipient_public_key = certificate_raw[DIGEST_SIZE:DIGEST_SIZE + RSA_PUBLIC_KEY_PEM_SIZE]
+        recipient_ip_address = certificate_raw[-IP_SIZE:]
 
-        self._kex_pub_keys[recipient_id] = recipient_public_key
+        # Generate a shared secret, KEM it and sign the KEM.
+        shared_secret = os.urandom(32)
+        kem_wrapped_shared_secret = load_pem_public_key(recipient_public_key).encrypt(
+            plaintext=shared_secret,
+            padding=padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None))
+
+        signed_kem_wrapped_shared_secret = self._secret_key.sign(
+            data=kem_wrapped_shared_secret,
+            padding=padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH),
+            algorithm=hashes.SHA256())
+
+        # Store the shared secret.
+        current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
+        current_stored_keys[b64encode(recipient_id).decode()] = {"shared_secret": b64encode(shared_secret).decode()}
+        json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
+
+        # Load the shared secret into the chat info and create an empty chat list.
+        self._chat_info[recipient_id] = ChatInfo(shared_secret=shared_secret)
+        self._chats[recipient_id] = []
+
+        # Send the signed KEM to the chat recipient.
+        sending_data = self._my_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
+        self._send_command(ConnectionProtocol.SOLO_INVITE, recipient_ip_address, sending_data)
 
     def _open_chat_with(self, data: str) -> None:
         # Get the recipient id.
@@ -411,7 +393,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # If the recipient is not known, invite them to chat.
         if recipient_id not in self._chat_info.keys():
-            self._send_command(ConnectionProtocol.SOLO_INVITE, SERVER_IP, recipient_id, to_server=True)
+            self._send_command(ConnectionProtocol.GET_NODE_INFO, SERVER_IP, recipient_id, to_server=True)
         while recipient_id not in self._chat_info.keys():
             pass
 
@@ -425,7 +407,7 @@ class ClientConnectionManager(ConnectionManager):
         args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
         proc = subprocess.Popen(args=[args], shell=True)
 
-        time.sleep(2)  # todo : change
+        # time.sleep(2)  # todo : change
 
         # If there is a queue of messages for the recipient, send them into the chat.
         for message in self._chats[recipient_id].copy():

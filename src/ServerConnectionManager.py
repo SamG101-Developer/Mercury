@@ -79,8 +79,8 @@ class ServerConnectionManager(ConnectionManager):
                 self._handle_client_online(addr, data)
 
             # When a client wants to message another client for the first time.
-            case ConnectionProtocol.SOLO_INVITE:
-                self._handle_solo_invite_to_another_node(addr, data)
+            case ConnectionProtocol.GET_NODE_INFO:
+                self._handle_get_node_info(addr, data)
 
             # When a client sends a message to another (individual) client.
             case ConnectionProtocol.SEND_MESSAGE:
@@ -204,26 +204,15 @@ class ServerConnectionManager(ConnectionManager):
         else:
             self._message_queue[client_username] = {}
 
-    def _handle_solo_invite_to_another_node(self, addr: IPv6Address, data: bytes) -> None:
+    def _handle_get_node_info(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the recipient's username and the message.
         recipient_username = data[:DIGEST_SIZE]
 
         # Check if the recipient exists / is online.
         if recipient_username not in self._node_ips:
             self._send_command(ConnectionProtocol.ERROR, addr, b"Recipient is not online.")
-            return
         else:
-            self._send_command(ConnectionProtocol.NODE_IS_ONLINE, addr, self._node_certs[recipient_username])
-
-        # Create the invitation for the recipient.
-        recipient_addr = self._node_ips[recipient_username]
-        sender_username = [k for k, v in self._node_ips.items() if v == addr][0]
-        sender_public_key = self._node_pub_keys[sender_username]
-        sender_ip_address = addr.packed
-        sending_data = sender_username + sender_public_key + sender_ip_address
-
-        # Send the invitation to the recipient.
-        self._send_command(ConnectionProtocol.PREP_FOR_SOLO, recipient_addr, sending_data)
+            self._send_command(ConnectionProtocol.NODE_INFO, addr, self._node_certs[recipient_username] + self._node_ips[recipient_username].packed)
 
     def _handle_send_message(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the recipient's username and the encrypted_message.
