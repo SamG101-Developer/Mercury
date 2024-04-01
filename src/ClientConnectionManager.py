@@ -350,7 +350,7 @@ class ClientConnectionManager(ConnectionManager):
                     salt_length=padding.PSS.MAX_LENGTH),
                 algorithm=hashes.SHA256())
         except InvalidSignature:
-            print("Invalid certificate.")
+            print("Invalid certificate when retrieving node information.")
             return
 
         # Extract the id, public key and ip of the recipient.
