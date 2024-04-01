@@ -362,7 +362,7 @@ class ClientConnectionManager(ConnectionManager):
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
         sending_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         sending_socket.sendto(message, ("::1", local_port))
-        self._chats[sender_id].pop()
+        # self._chats[sender_id].pop()
 
     def _handle_node_online(self, addr: IPv6Address, data: bytes) -> None:
         # Verify the node's certificate and extract the public key.
