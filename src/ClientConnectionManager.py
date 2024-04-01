@@ -57,6 +57,7 @@ class ClientConnectionManager(ConnectionManager):
         chats = json.load(open("src/_chat_keys/keys.json", "r"))
         for recipient_id in chats.keys():
             self._chat_info[b64decode(recipient_id)] = ChatInfo(shared_secret=b64decode(chats[recipient_id]["shared_secret"]))
+            self._chats[b64decode(recipient_id)] = []
 
     def _boot_sequence(self):
         self.register_to_server()
