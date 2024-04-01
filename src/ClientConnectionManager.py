@@ -302,7 +302,7 @@ class ClientConnectionManager(ConnectionManager):
                 label=None))
 
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
-        current_stored_keys[b64encode(chat_receiver_id)] = {"shared_secret": b64encode(shared_secret).decode()}
+        current_stored_keys[b64encode(chat_receiver_id).decode()] = {"shared_secret": b64encode(shared_secret).decode()}
         json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
 
         self._chat_info[chat_receiver_id] = ChatInfo(shared_secret=shared_secret)
