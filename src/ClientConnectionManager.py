@@ -358,7 +358,7 @@ class ClientConnectionManager(ConnectionManager):
                 pass
 
         # Create the message window (as a command line window), and save the process.
-        port = 20003 + len(self._chat_info)
+        port = str(20003 + len(self._chat_info))
         encoded_recipient_id = b64encode(recipient_id).decode()
         process = subprocess.Popen(args=["python", "src/ClientMessagingShell.py", port, encoded_recipient_id], shell=True)
         self._chat_info[recipient_id].process = process
