@@ -13,8 +13,6 @@ class Shell:
     _recipient_id: bytes
 
     def __init__(self, port: int, who: str) -> None:
-        print(port, who)
-
         # Convert the recipient's name to an ID.
         self._recipient_id = b64decode(who)
 
