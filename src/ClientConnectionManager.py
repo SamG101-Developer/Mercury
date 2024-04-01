@@ -362,9 +362,7 @@ class ClientConnectionManager(ConnectionManager):
         encoded_recipient_id = b64encode(recipient_id).decode()
         args = ["python", "src/ClientMessagingShell.py", port, encoded_recipient_id]
         args[:0] = ["lxterminal", "-e"] if os.name == "posix" else ["cmd", "/c", "start"]
-        print(args)
-        process = subprocess.Popen(args=args, shell=True)
-        self._chat_info[recipient_id].process = process
+        subprocess.call(args=args, shell=True)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")
