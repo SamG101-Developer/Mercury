@@ -1,5 +1,5 @@
-import subprocess
-import time, os
+import socket, subprocess, time, os
+from base64 import b64encode
 from dataclasses import dataclass
 from ipaddress import IPv6Address
 from threading import Thread
@@ -45,6 +45,7 @@ class ClientConnectionManager(ConnectionManager):
         self._kex_pub_keys = {}
 
         self.boot_sequence()
+        Thread(target=self._setup_local_messaging_reader_port).start()
 
         while True:
             command = input("Cmd > ")
@@ -55,6 +56,16 @@ class ClientConnectionManager(ConnectionManager):
         while not self._cert:
             pass
         self.tell_server_client_is_online()
+
+    def _setup_local_messaging_reader_port(self):
+        reader_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        reader_socket.bind(('::1', 20002))
+
+        while True:
+            data, addr = reader_socket.recvfrom(1024)
+            if addr != ('::1', 20002): continue
+            who, data = data[:DIGEST_SIZE], data[DIGEST_SIZE:]
+            self._send_message_to(data, who)
 
     def register_to_server(self) -> None:
         # Don't allow double registration.
@@ -347,20 +358,9 @@ class ClientConnectionManager(ConnectionManager):
                 pass
 
         # Create the message window (as a command line window).
-        process = subprocess.Popen(
-            args=["cmd.exe"] if os.name == "nt" else ["lxterminal", "-e", "bash"],  # todo: into [..]
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True)
-        self._chat_info[recipient_id].process = process
-
-        while True:
-            process.stdin.write("Message > ")
-            process.stdin.flush()
-            message = process.stdout.readline().strip()
-
-            self._send_message_to(message.encode(), recipient_id)
+        port = 20003 + len(self._chat_info)
+        encoded_recipient_id = b64encode(recipient_id).decode()
+        process = subprocess.Popen(f"python ClientMessagingShell.py {port} {recipient_id}", creationflags=subprocess.CREATE_NEW_CONSOLE)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")

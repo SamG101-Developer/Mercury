@@ -63,8 +63,8 @@ class ServerConnectionManager(ConnectionManager):
         self._public_key = load_pem_public_key(public_pem)
 
         with ServerConnectionManager.JSON_LOCK:
-            self._node_pub_keys = {b64decode(k.encode()): v["public_key"] for k, v in node_info.items()}
-            self._node_certs = {b64decode(k.encode()): v["certificate"] for k, v in node_info.items()}
+            self._node_pub_keys = {b64decode(k): b64decode(v["public_key"]) for k, v in node_info.items()}
+            self._node_certs = {b64decode(k): b64decode(v["certificate"]) for k, v in node_info.items()}
 
     def _handle_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         match command:
@@ -135,8 +135,8 @@ class ServerConnectionManager(ConnectionManager):
             # todo: prevent double-registering
             saved_node_info = json.load(open("src/_server_keys/node_info.json"))
             saved_node_info[b64encode(node_username).decode()] = {
-                "public_key": node_public_key,
-                "certificate": certificate_sig + certificate_raw,
+                "public_key": b64encode(node_public_key).decode(),
+                "certificate": b64encode(certificate_sig + certificate_raw).decode(),
             }
             json.dump(saved_node_info, open("src/_server_keys/node_info.json", "w"))
 
@@ -195,6 +195,8 @@ class ServerConnectionManager(ConnectionManager):
             for message_id, message_info in self._message_queue[client_username].items():
                 message_sender, encrypted_message = message_info
                 self._send_command(ConnectionProtocol.SEND_MESSAGE, addr, message_id + message_sender + encrypted_message)
+        else:
+            self._message_queue[client_username] = {}
 
     def _handle_solo_invite_to_another_node(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the recipient's username and the message.
