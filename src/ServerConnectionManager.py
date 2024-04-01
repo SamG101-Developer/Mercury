@@ -221,18 +221,18 @@ class ServerConnectionManager(ConnectionManager):
 
     def _handle_send_message(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the recipient's username and the encrypted_message.
-        recipient_username = data[:DIGEST_SIZE]
+        recipient_id = data[:DIGEST_SIZE]
         encrypted_message = data[DIGEST_SIZE:]
-        sender_username = [k for k, v in self._node_ips.items() if v == addr][0]
+        sender_id = [k for k, v in self._node_ips.items() if v == addr][0]
 
         # Check if the recipient exists / is online.
         message_id = HASH_ALGORITHM(str(time.time()).encode() + encrypted_message).digest()
-        self._message_queue[recipient_username][message_id] = (sender_username, encrypted_message)
+        self._message_queue[recipient_id][message_id] = (sender_id, encrypted_message)
 
         # Send the encrypted_message to the recipient.
-        if recipient_username in self._node_ips:
-            recipient_addr = self._node_ips[recipient_username]
-            self._send_command(ConnectionProtocol.SEND_MESSAGE, recipient_addr, message_id + sender_username + encrypted_message)
+        if recipient_id in self._node_ips:
+            recipient_addr = self._node_ips[recipient_id]
+            self._send_command(ConnectionProtocol.SEND_MESSAGE, recipient_addr, message_id + sender_id + encrypted_message)
 
     def _handle_message_ack(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the sender's username and the message_id.
