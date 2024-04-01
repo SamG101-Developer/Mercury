@@ -32,6 +32,7 @@ class ClientConnectionManager(ConnectionManager):
     _cert = None
     _chat_info: dict[bytes, ChatInfo]  # ID -> (Shared secret, Public key, Ready)
     _kex_pub_keys: dict[bytes, bytes]  # ID -> Public Key
+    _my_username: str
     _my_id: bytes
     _secret_key: rsa.RSAPrivateKey
     _public_key: rsa.RSAPublicKey
@@ -82,6 +83,7 @@ class ClientConnectionManager(ConnectionManager):
         if os.path.exists("src/_my_keys"):
             self._secret_key = load_pem_private_key(open("src/_my_keys/private_key.pem", "rb").read(), password=None)
             self._public_key = load_pem_public_key(open("src/_my_keys/public_key.pem", "rb").read())
+            self._my_username = open("src/_my_keys/username.txt", "r").read()
             self._my_id = open("src/_my_keys/identifier.txt", "rb").read()
             self._cert = open("src/_my_keys/certificate.pem", "rb").read()
             self._handle_error(IPv6Address("::1"), b"Already registered.")
@@ -93,6 +95,7 @@ class ClientConnectionManager(ConnectionManager):
     def register_to_server_internal(self, username: str) -> None:
         # Create a username (hash = ID), and generate a key pair.
         hashed_username = HASH_ALGORITHM(username.encode()).digest()
+        self._my_username = username
         self._my_id = hashed_username
         self._secret_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         self._public_key = self._secret_key.public_key()
@@ -103,6 +106,7 @@ class ClientConnectionManager(ConnectionManager):
         public_pem = self._public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.PKCS1)
         open("src/_my_keys/private_key.pem", "wb").write(secret_pem)
         open("src/_my_keys/public_key.pem", "wb").write(public_pem)
+        open("src/_my_keys/username.txt", "w").write(username)
         open("src/_my_keys/identifier.txt", "wb").write(hashed_username)
         print("\tRegistering with the server...")
 
@@ -137,7 +141,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Encrypt the message and send it.
         self._chats[recipient_id].append(Message(message_bytes=message, am_i_sender=True))
-        encrypted_message = self._encrypt_message(chat.shared_secret, message + b"\n")
+        encrypted_message = self._encrypt_message(chat.shared_secret, self._my_username.encode() + b" > " + message + b"\n")
 
         sending_data = recipient_id + encrypted_message
         self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, sending_data, to_server=True)

@@ -29,7 +29,7 @@ class Shell:
     def _send(self) -> None:
         while True:
             # Get a message from the user and send it.
-            line = input("Message > ")
+            line = input("Me > ")
             line = self._recipient_id + line.encode()
             self._writer_socket.sendto(line, ('::1', READER_PORT))
 
@@ -42,7 +42,7 @@ class Shell:
             # Remove the current "Message > " prompt and print the message.
             sys.stdout.write('\r' + ' ' * (len(line) + len("Message > ")) + '\r')
             print(line, end='')
-            sys.stdout.write("Message > ")
+            sys.stdout.write("Me > ")
             sys.stdout.flush()
 
     def __del__(self) -> None:
