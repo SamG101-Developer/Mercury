@@ -148,7 +148,7 @@ class ClientConnectionManager(ConnectionManager):
         self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, sending_data, to_server=True)
 
     def _handle_local_command(self, command: str) -> None:
-        if not " " in command:
+        if " " not in command:
             self._handle_error(IPv6Address("::1"), b"Invalid local command.")
 
         command, data = command.split(" ", 1)
