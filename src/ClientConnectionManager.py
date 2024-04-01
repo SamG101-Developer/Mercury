@@ -360,9 +360,9 @@ class ClientConnectionManager(ConnectionManager):
         # Create the message window (as a command line window), and save the process.
         port = str(20003 + len(self._chat_info))
         encoded_recipient_id = b64encode(recipient_id).decode()
-        args = ["python", "src/ClientMessagingShell.py", port, encoded_recipient_id]
-        args[:0] = ["lxterminal", "-e"] if os.name == "posix" else ["cmd", "/c", "start"]
-        subprocess.call(args=args, shell=True)
+        args = f"python src/ClientMessagingShell.py {port} {encoded_recipient_id}"
+        args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
+        subprocess.call(args=[args], shell=True)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")
