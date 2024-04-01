@@ -412,7 +412,7 @@ class ClientConnectionManager(ConnectionManager):
         args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
         proc = subprocess.Popen(args=[args], shell=True)
 
-        # time.sleep(2)  # todo : change
+        time.sleep(2)  # todo : change
 
         # If there is a queue of messages for the recipient, send them into the chat.
         for message in self._chats[recipient_id].copy():
