@@ -192,7 +192,7 @@ class ServerConnectionManager(ConnectionManager):
 
         # If the client has messages in the queue, send them.
         if client_username in self._message_queue:
-            for message_id, message_info in self._message_queue[client_username].items():
+            for message_id, message_info in self._message_queue[client_username].copy().items():
                 message_sender, encrypted_message = message_info
                 self._send_command(ConnectionProtocol.SEND_MESSAGE, addr, message_id + message_sender + encrypted_message)
         else:
@@ -225,8 +225,10 @@ class ServerConnectionManager(ConnectionManager):
         encrypted_message = data[DIGEST_SIZE:]
         sender_id = [k for k, v in self._node_ips.items() if v == addr][0]
 
-        # Check if the recipient exists / is online.
+        # Queue the message for the recipient.
         message_id = HASH_ALGORITHM(str(time.time()).encode() + encrypted_message).digest()
+        if recipient_id not in self._message_queue:
+            self._message_queue[recipient_id] = {}
         self._message_queue[recipient_id][message_id] = (sender_id, encrypted_message)
 
         # Send the encrypted_message to the recipient.
