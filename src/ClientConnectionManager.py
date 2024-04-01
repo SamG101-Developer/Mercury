@@ -24,7 +24,6 @@ SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 class ChatInfo:
     shared_secret: bytes
     ready: bool
-    process: Optional[subprocess.Popen]
 
 
 class ClientConnectionManager(ConnectionManager):
@@ -248,8 +247,7 @@ class ClientConnectionManager(ConnectionManager):
         # Send the signed KEM to the chat initiator.
         self._chat_info[chat_initiator_username] = ChatInfo(
             shared_secret=shared_secret,
-            ready=True,
-            process=None)
+            ready=True)
 
         sending_data = self._username + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
         self._send_command(ConnectionProtocol.INVITE_ACK, chat_initiator_ip_address, sending_data)
@@ -306,24 +304,24 @@ class ClientConnectionManager(ConnectionManager):
 
         self._chat_info[chat_receiver_id] = ChatInfo(
             shared_secret=shared_secret,
-            ready=True,
-            process=None)
+            ready=True)
 
     def _handle_received_message(self, addr: IPv6Address, data: bytes) -> None:
-        # Extract the message ID, sender, and encrypted message.
+        # Extract the message ID, recipient ID, and encrypted message.
         message_id = data[:DIGEST_SIZE]
-        sender = data[DIGEST_SIZE:DIGEST_SIZE * 2]
+        recipient_id = data[DIGEST_SIZE:DIGEST_SIZE * 2]
         encrypted_message = data[DIGEST_SIZE * 2:]
 
         # Decrypt the message and store it.
         shared_secret = self._chat_info[message_id].shared_secret
         message = self._decrypt_message(shared_secret, encrypted_message)
-        self._chats[message_id].append(sender + message)
+        self._chats[recipient_id].append(message)
+
+        # ACK the message.
+        self._send_command(ConnectionProtocol.MESSAGE_ACK, SERVER_IP, message_id, to_server=True)
 
         # Put the message in the chat window if there is one.
-        if self._chat_info[message_id].process:
-            self._chat_info[message_id].process.stdin.write(f"{sender}: {message}\n")
-            self._chat_info[message_id].process.stdin.flush()
+        # todo
 
     def _handle_node_online(self, addr: IPv6Address, data: bytes) -> None:
         # Verify the node's certificate and extract the public key.
