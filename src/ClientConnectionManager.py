@@ -342,9 +342,12 @@ class ClientConnectionManager(ConnectionManager):
         # ACK the message.
         self._send_command(ConnectionProtocol.MESSAGE_ACK, SERVER_IP, message_id, to_server=True)
 
-        # Put the message in the chat window if there is one.
+        # Put the message in the chat window if there is a process for the chat window, and it is alive.
         local_port = self._chat_info[sender_id].local_port
-        if self._chat_info[sender_id].process.poll() is not None and local_port != -1:
+        if all([
+                self._chat_info[sender_id].process is not None,
+                self._chat_info[sender_id].process.poll() is not None,
+                local_port != -1]):
             self._push_message_into_messaging_window(sender_id, local_port, message)
 
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
