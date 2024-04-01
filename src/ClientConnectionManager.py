@@ -343,6 +343,8 @@ class ClientConnectionManager(ConnectionManager):
         if local_port != -1:
             sending_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
             sending_socket.sendto(message, ("::1", local_port))
+        else:
+            print("Port error.")
 
     def _handle_node_online(self, addr: IPv6Address, data: bytes) -> None:
         # Verify the node's certificate and extract the public key.
@@ -374,6 +376,8 @@ class ClientConnectionManager(ConnectionManager):
         # If the recipient is not known, invite them to chat.
         if recipient_id not in self._chat_info.keys():
             self._send_command(ConnectionProtocol.SOLO_INVITE, SERVER_IP, recipient_id, to_server=True)
+        while recipient_id not in self._chat_info.keys():
+            pass
 
         # Create the message window (as a command line window), and save the process.
         port = str(20003 + len(self._chat_info))
