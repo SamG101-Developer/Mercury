@@ -120,6 +120,8 @@ class ClientConnectionManager(ConnectionManager):
             pass
 
     def _send_message_to(self, message: bytes, recipient_id: bytes) -> None:
+        print(f"Sending message {message} to recipient {recipient_id}.")
+
         # Get the recipient's shared secret and public key.
         chat = self._chat_info[recipient_id]
 
