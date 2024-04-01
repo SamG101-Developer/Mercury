@@ -77,7 +77,6 @@ class ClientConnectionManager(ConnectionManager):
 
         while True:
             message, addr = reader_socket.recvfrom(1024)
-            print(f"Received message from {addr}: {message}")
             if addr[0] != "::1": continue
             encoded_recipient_id, message = message[:DIGEST_SIZE], message[DIGEST_SIZE:]
             self._send_message_to(message, encoded_recipient_id)
@@ -138,8 +137,6 @@ class ClientConnectionManager(ConnectionManager):
             pass
 
     def _send_message_to(self, message: bytes, recipient_id: bytes) -> None:
-        print(f"Sending message {message} to recipient {recipient_id}.")
-
         # Get the recipient's shared secret and public key.
         chat = self._chat_info[recipient_id]
 
@@ -347,10 +344,12 @@ class ClientConnectionManager(ConnectionManager):
         # Put the message in the chat window if there is one.
         local_port = self._chat_info[sender_id].local_port
         if local_port != -1:
-            sending_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-            sending_socket.sendto(message, ("::1", local_port))
-        else:
-            print("Port error.")
+            self._push_message_into_messaging_window(sender_id, local_port, message)
+
+    def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
+        sending_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        sending_socket.sendto(message, ("::1", local_port))
+        self._chats[sender_id].pop()
 
     def _handle_node_online(self, addr: IPv6Address, data: bytes) -> None:
         # Verify the node's certificate and extract the public key.
@@ -393,6 +392,10 @@ class ClientConnectionManager(ConnectionManager):
         args = f"python src/ClientMessagingShell.py {port} {encoded_recipient_id}"
         args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
         subprocess.call(args=[args], shell=True)
+
+        # If there is a queue of messages for the recipient, send them into the chat.
+        for message in self._chats[recipient_id]:
+            self._push_message_into_messaging_window(recipient_id, int(port), message.message_bytes)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")
