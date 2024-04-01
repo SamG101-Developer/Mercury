@@ -53,8 +53,8 @@ class ClientConnectionManager(ConnectionManager):
     def _load_chat_info(self) -> None:
         # Get the known keys and check if the recipient is already in a chat.
         chats = json.load(open("src/_chat_keys/keys.json", "r"))
-        for key in chats.keys():
-            self._chat_info[key] = ChatInfo(shared_secret=b64decode(chats[key]["shared_secret"]))
+        for recipient_id in chats.keys():
+            self._chat_info[b64decode(recipient_id)] = ChatInfo(shared_secret=b64decode(chats[recipient_id]["shared_secret"]))
 
     def _boot_sequence(self):
         self.register_to_server()
@@ -302,7 +302,7 @@ class ClientConnectionManager(ConnectionManager):
                 label=None))
 
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
-        current_stored_keys[chat_receiver_id] = {"shared_secret": b64encode(shared_secret).decode()}
+        current_stored_keys[b64encode(chat_receiver_id)] = {"shared_secret": b64encode(shared_secret).decode()}
         json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
 
         self._chat_info[chat_receiver_id] = ChatInfo(shared_secret=shared_secret)
