@@ -346,7 +346,7 @@ class ClientConnectionManager(ConnectionManager):
         local_port = self._chat_info[sender_id].local_port
         if (
                 self._chat_info[sender_id].process is None or
-                self._chat_info[sender_id].process.poll() is not None or
+                self._chat_info[sender_id].process.poll() in [None, 0] or
                 local_port == -1):
             print(local_port)
             print(self._chat_info[sender_id].process)
