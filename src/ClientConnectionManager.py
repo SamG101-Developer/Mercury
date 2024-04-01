@@ -267,6 +267,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Send the signed KEM to the chat initiator.
         self._chat_info[chat_initiator_id] = ChatInfo(shared_secret=shared_secret)
+        self._chats[chat_initiator_id] = []
 
         sending_data = self._my_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
         self._send_command(ConnectionProtocol.INVITE_ACK, chat_initiator_ip_address, sending_data)
@@ -327,6 +328,7 @@ class ClientConnectionManager(ConnectionManager):
         json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
 
         self._chat_info[chat_receiver_id] = ChatInfo(shared_secret=shared_secret)
+        self._chats[chat_receiver_id] = []
 
     def _handle_received_message(self, addr: IPv6Address, data: bytes) -> None:
         # Extract the message ID, recipient ID, and encrypted message.
