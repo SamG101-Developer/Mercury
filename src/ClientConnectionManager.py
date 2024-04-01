@@ -1,7 +1,7 @@
 import json
 import socket, subprocess, time, os
 from base64 import b64decode, b64encode
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from ipaddress import IPv6Address
 from threading import Thread
 
@@ -24,6 +24,7 @@ SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 @dataclass(kw_only=True)
 class ChatInfo:
     shared_secret: bytes
+    local_port: int = field(default=-1)
 
 
 class ClientConnectionManager(ConnectionManager):
@@ -334,7 +335,10 @@ class ClientConnectionManager(ConnectionManager):
         self._send_command(ConnectionProtocol.MESSAGE_ACK, SERVER_IP, message_id, to_server=True)
 
         # Put the message in the chat window if there is one.
-        # todo
+        local_port = self._chat_info[sender_id].local_port
+        if local_port != -1:
+            sending_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+            sending_socket.sendto(message, ("::1", local_port))
 
     def _handle_node_online(self, addr: IPv6Address, data: bytes) -> None:
         # Verify the node's certificate and extract the public key.
@@ -369,6 +373,8 @@ class ClientConnectionManager(ConnectionManager):
 
         # Create the message window (as a command line window), and save the process.
         port = str(20003 + len(self._chat_info))
+        self._chat_info[recipient_id].local_port = port
+
         encoded_recipient_id = b64encode(recipient_id).decode()
         args = f"python src/ClientMessagingShell.py {port} {encoded_recipient_id}"
         args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
