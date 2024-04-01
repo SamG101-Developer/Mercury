@@ -393,9 +393,12 @@ class ClientConnectionManager(ConnectionManager):
         args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
         subprocess.call(args=[args], shell=True)
 
+        time.sleep(2)  # todo : change
+
         # If there is a queue of messages for the recipient, send them into the chat.
         print("queued messages:", self._chats[recipient_id])
-        for message in self._chats[recipient_id]:
+
+        for message in self._chats[recipient_id].copy():
             self._push_message_into_messaging_window(recipient_id, int(port), message.message_bytes)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
