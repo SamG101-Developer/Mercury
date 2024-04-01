@@ -282,8 +282,9 @@ class ClientConnectionManager(ConnectionManager):
             return
 
         # Verify the signed KEM is valid.
+        chat_initiator_public_key = chat_receiver_certificate_raw[DIGEST_SIZE:]
         try:
-            load_pem_public_key(open("src/_my_keys/public_key.pem", "rb").read()).verify(
+            load_pem_public_key(chat_initiator_public_key).verify(
                 signature=signed_kem_wrapped_shared_secret,
                 data=kem_wrapped_shared_secret,
                 padding=padding.PSS(
