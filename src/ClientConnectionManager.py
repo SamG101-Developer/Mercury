@@ -348,6 +348,10 @@ class ClientConnectionManager(ConnectionManager):
                 self._chat_info[sender_id].process is None or
                 self._chat_info[sender_id].process.poll() is not None or
                 local_port == -1):
+            print(local_port)
+            print(self._chat_info[sender_id].process)
+            if self._chat_info[sender_id].process is not None:
+                print("poll", self._chat_info[sender_id].process.poll())
             pass
         else:
             self._push_message_into_messaging_window(sender_id, local_port, message)
