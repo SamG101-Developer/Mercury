@@ -21,11 +21,21 @@ from src.Crypto import *
 SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 
 
+def popen_and_call(on_exit_function, *args, **kwargs):
+    def in_thread():
+        proc = subprocess.Popen(*args, **kwargs)
+        proc.wait()
+        on_exit_function()
+
+    thread = Thread(target=in_thread)
+    thread.start()
+    return thread
+
+
 @dataclass(kw_only=True)
 class ChatInfo:
     shared_secret: bytes
     local_port: int = field(default=-1)
-    process: subprocess.Popen = field(default=None)
 
 
 class ClientConnectionManager(ConnectionManager):
@@ -344,22 +354,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Put the message in the chat window if there is a process for the chat window, and it is alive.
         local_port = self._chat_info[sender_id].local_port
-        if (
-                self._chat_info[sender_id].process is None or
-                self._chat_info[sender_id].process.poll() not in [None, 0] or
-                local_port == -1):
-            print("NO DISPLAY")
-            print(local_port)
-            print(self._chat_info[sender_id].process)
-            if self._chat_info[sender_id].process is not None:
-                print("poll", self._chat_info[sender_id].process.poll())
-            pass
-        else:
-            print("DISPLAY")
-            print(local_port)
-            print(self._chat_info[sender_id].process)
-            if self._chat_info[sender_id].process is not None:
-                print("poll", self._chat_info[sender_id].process.poll())
+        if local_port != -1:
             self._push_message_into_messaging_window(sender_id, local_port, message)
 
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
@@ -408,8 +403,13 @@ class ClientConnectionManager(ConnectionManager):
         encoded_recipient_id = b64encode(recipient_id).decode()
         args = f"python src/ClientMessagingShell.py {port} {encoded_recipient_id}"
         args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
-        proc = subprocess.Popen(args=[args], shell=True)
-        self._chat_info[recipient_id].process = proc
+
+        def reset_local_port():
+            self._chat_info[recipient_id].local_port = -1
+
+        popen_and_call(reset_local_port, args=[args], shell=True)
+
+        # proc = subprocess.Popen(args=[args], shell=True)
 
         time.sleep(2)  # todo : change
 
