@@ -356,6 +356,8 @@ class ClientConnectionManager(ConnectionManager):
         local_port = self._chat_info[sender_id].local_port
         if local_port != -1:
             self._push_message_into_messaging_window(sender_id, local_port, message)
+        else:
+            print(f"port is {local_port}")
 
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
         sending_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
