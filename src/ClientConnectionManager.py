@@ -1,9 +1,9 @@
+import json
 import socket, subprocess, time, os
 from base64 import b64encode
 from dataclasses import dataclass
 from ipaddress import IPv6Address
 from threading import Thread
-from typing import Optional
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -23,7 +23,6 @@ SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 @dataclass(kw_only=True)
 class ChatInfo:
     shared_secret: bytes
-    ready: bool
 
 
 class ClientConnectionManager(ConnectionManager):
@@ -43,14 +42,21 @@ class ClientConnectionManager(ConnectionManager):
         self._chat_info = {}
         self._kex_pub_keys = {}
 
-        self.boot_sequence()
+        self._load_chat_info()
+        self._boot_sequence()
         Thread(target=self._setup_local_messaging_reader_port).start()
 
         while True:
             command = input("Cmd > ")
             self._handle_local_command(command)
 
-    def boot_sequence(self):
+    def _load_chat_info(self) -> None:
+        # Get the known keys and check if the recipient is already in a chat.
+        chats = json.load(open("src/_chat_keys/keys.json", "r"))
+        for key in chats.keys():
+            self._chat_info[key] = ChatInfo(shared_secret=chats[key]["shared_secret"])
+
+    def _boot_sequence(self):
         self.register_to_server()
         while not self._cert:
             pass
@@ -124,11 +130,6 @@ class ClientConnectionManager(ConnectionManager):
 
         # Get the recipient's shared secret and public key.
         chat = self._chat_info[recipient_id]
-
-        # If the recipient is not ready, wait for them to be.
-        if not chat.ready:
-            self._handle_error(IPv6Address("::1"), b"Recipient not ready.")
-            return
 
         # Encrypt the message and send it.
         encrypted_message = self._encrypt_message(chat.shared_secret, message)
@@ -245,9 +246,7 @@ class ClientConnectionManager(ConnectionManager):
             algorithm=hashes.SHA256())
 
         # Send the signed KEM to the chat initiator.
-        self._chat_info[chat_initiator_username] = ChatInfo(
-            shared_secret=shared_secret,
-            ready=True)
+        self._chat_info[chat_initiator_username] = ChatInfo(shared_secret=shared_secret)
 
         sending_data = self._username + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
         self._send_command(ConnectionProtocol.INVITE_ACK, chat_initiator_ip_address, sending_data)
@@ -302,9 +301,7 @@ class ClientConnectionManager(ConnectionManager):
                 algorithm=hashes.SHA256(),
                 label=None))
 
-        self._chat_info[chat_receiver_id] = ChatInfo(
-            shared_secret=shared_secret,
-            ready=True)
+        self._chat_info[chat_receiver_id] = ChatInfo(shared_secret=shared_secret)
 
     def _handle_received_message(self, addr: IPv6Address, data: bytes) -> None:
         # Extract the message ID, recipient ID, and encrypted message.
@@ -313,7 +310,7 @@ class ClientConnectionManager(ConnectionManager):
         encrypted_message = data[DIGEST_SIZE * 2:]
 
         # Decrypt the message and store it.
-        shared_secret = self._chat_info[message_id].shared_secret
+        shared_secret = self._chat_info[recipient_id].shared_secret
         message = self._decrypt_message(shared_secret, encrypted_message)
         self._chats[recipient_id].append(message)
 
@@ -353,10 +350,6 @@ class ClientConnectionManager(ConnectionManager):
         # If the recipient is not known, invite them to chat.
         if recipient_id not in self._chat_info.keys():
             self._send_command(ConnectionProtocol.SOLO_INVITE, SERVER_IP, recipient_id, to_server=True)
-
-            # Wait until ready to chat with them.
-            while recipient_id not in self._chat_info.keys() or not self._chat_info[recipient_id].ready:
-                pass
 
         # Create the message window (as a command line window), and save the process.
         port = str(20003 + len(self._chat_info))
