@@ -301,6 +301,10 @@ class ClientConnectionManager(ConnectionManager):
                 algorithm=hashes.SHA256(),
                 label=None))
 
+        current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
+        current_stored_keys[chat_receiver_id] = {"shared_secret": shared_secret}
+        json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
+
         self._chat_info[chat_receiver_id] = ChatInfo(shared_secret=shared_secret)
 
     def _handle_received_message(self, addr: IPv6Address, data: bytes) -> None:
