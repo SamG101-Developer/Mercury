@@ -25,6 +25,7 @@ SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 class ChatInfo:
     shared_secret: bytes
     local_port: int = field(default=-1)
+    process: subprocess.Popen = field(default=None)
 
 
 class ClientConnectionManager(ConnectionManager):
@@ -343,7 +344,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Put the message in the chat window if there is one.
         local_port = self._chat_info[sender_id].local_port
-        if local_port != -1:
+        if self._chat_info[sender_id].process.poll() is not None and local_port != -1:
             self._push_message_into_messaging_window(sender_id, local_port, message)
 
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
@@ -392,7 +393,8 @@ class ClientConnectionManager(ConnectionManager):
         encoded_recipient_id = b64encode(recipient_id).decode()
         args = f"python src/ClientMessagingShell.py {port} {encoded_recipient_id}"
         args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
-        subprocess.call(args=[args], shell=True)
+        proc = subprocess.Popen(args=[args], shell=True)
+        self._chat_info[recipient_id].process = proc
 
         time.sleep(2)  # todo : change
 
