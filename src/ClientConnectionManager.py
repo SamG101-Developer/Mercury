@@ -21,16 +21,16 @@ from src.Crypto import *
 SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 
 
-def popen_and_call(on_exit_function, *args, **kwargs):
-    def in_thread():
-        proc = subprocess.Popen(*args, **kwargs)
-        proc.wait()
-        print("proc done :(")
-        on_exit_function()
-
-    thread = Thread(target=in_thread)
-    thread.start()
-    return thread
+# def popen_and_call(on_exit_function, *args, **kwargs):
+#     def in_thread():
+#         proc = subprocess.Popen(*args, **kwargs)
+#         proc.wait()
+#         print("proc done :(")
+#         on_exit_function()
+#
+#     thread = Thread(target=in_thread)
+#     thread.start()
+#     return thread
 
 
 @dataclass(kw_only=True)
@@ -355,10 +355,9 @@ class ClientConnectionManager(ConnectionManager):
 
         # Put the message in the chat window if there is a process for the chat window, and it is alive.
         local_port = self._chat_info[sender_id].local_port
+
         if local_port != -1:
             self._push_message_into_messaging_window(sender_id, local_port, message)
-        else:
-            print(f"port is {local_port}")
 
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
         sending_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
@@ -406,13 +405,7 @@ class ClientConnectionManager(ConnectionManager):
         encoded_recipient_id = b64encode(recipient_id).decode()
         args = f"python src/ClientMessagingShell.py {port} {encoded_recipient_id}"
         args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
-
-        def reset_local_port():
-            self._chat_info[recipient_id].local_port = -1
-
-        popen_and_call(reset_local_port, args=[args], shell=True)
-
-        # proc = subprocess.Popen(args=[args], shell=True)
+        proc = subprocess.Popen(args=[args], shell=True)
 
         time.sleep(2)  # todo : change
 
