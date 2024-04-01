@@ -30,7 +30,8 @@ class Shell:
         while True:
             # Get a message from the user and send it.
             line = input("Message > ")
-            self._writer_socket.sendto(line.encode(), ('::1', READER_PORT))
+            line = self._recipient_id + line.encode()
+            self._writer_socket.sendto(line, ('::1', READER_PORT))
 
     def _recv(self) -> None:
         while True:
