@@ -63,7 +63,8 @@ class ClientConnectionManager(ConnectionManager):
 
         while True:
             data, addr = reader_socket.recvfrom(1024)
-            if addr != ('::1', 20002): continue
+            print(f"Received message from {addr}: {data}")
+            if addr[0] != "::1": continue
             who, data = data[:DIGEST_SIZE], data[DIGEST_SIZE:]
             self._send_message_to(data, who)
 
