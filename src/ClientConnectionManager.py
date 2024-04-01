@@ -1,6 +1,6 @@
 import json
 import socket, subprocess, time, os
-from base64 import b64encode
+from base64 import b64decode, b64encode
 from dataclasses import dataclass
 from ipaddress import IPv6Address
 from threading import Thread
@@ -54,7 +54,7 @@ class ClientConnectionManager(ConnectionManager):
         # Get the known keys and check if the recipient is already in a chat.
         chats = json.load(open("src/_chat_keys/keys.json", "r"))
         for key in chats.keys():
-            self._chat_info[key] = ChatInfo(shared_secret=chats[key]["shared_secret"])
+            self._chat_info[key] = ChatInfo(shared_secret=b64decode(chats[key]["shared_secret"]))
 
     def _boot_sequence(self):
         self.register_to_server()
@@ -302,7 +302,7 @@ class ClientConnectionManager(ConnectionManager):
                 label=None))
 
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
-        current_stored_keys[chat_receiver_id] = {"shared_secret": shared_secret}
+        current_stored_keys[chat_receiver_id] = {"shared_secret": b64encode(shared_secret).decode()}
         json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
 
         self._chat_info[chat_receiver_id] = ChatInfo(shared_secret=shared_secret)
