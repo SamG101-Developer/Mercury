@@ -356,7 +356,7 @@ class ClientConnectionManager(ConnectionManager):
         # Extract the id, public key and ip of the recipient.
         recipient_id = certificate_raw[:DIGEST_SIZE]
         recipient_public_key = certificate_raw[DIGEST_SIZE:DIGEST_SIZE + RSA_PUBLIC_KEY_PEM_SIZE]
-        recipient_ip_address = data[-IP_SIZE:]
+        recipient_ip_address = IPv6Address(data[-IP_SIZE:])
 
         # Generate a shared secret, KEM it and sign the KEM.
         shared_secret = os.urandom(32)
