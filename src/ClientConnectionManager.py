@@ -56,7 +56,7 @@ class ClientConnectionManager(ConnectionManager):
 
     def _load_chat_info(self) -> None:
         # Get the known keys and check if the recipient is already in a chat.
-        if not os.path.exists("src/_chat_keys") or not os.path.exists("src/_chat_keys/keys.json"):
+        if not os.path.exists("src/_chat_keys/keys.json"):
             os.mkdir("src/_chat_keys")
             open("src/_chat_keys/keys.json", "w").write("{}")
 
