@@ -360,7 +360,7 @@ class ClientConnectionManager(ConnectionManager):
         # Create the message window (as a command line window).
         port = 20003 + len(self._chat_info)
         encoded_recipient_id = b64encode(recipient_id).decode()
-        process = subprocess.Popen(f"python ClientMessagingShell.py {port} {recipient_id}", shell=True)
+        process = subprocess.Popen(f"python src/ClientMessagingShell.py {port} {recipient_id}", shell=True)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")
