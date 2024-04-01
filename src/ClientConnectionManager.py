@@ -348,12 +348,18 @@ class ClientConnectionManager(ConnectionManager):
                 self._chat_info[sender_id].process is None or
                 self._chat_info[sender_id].process.poll() not in [None, 0] or
                 local_port == -1):
+            print("NO DISPLAY")
             print(local_port)
             print(self._chat_info[sender_id].process)
             if self._chat_info[sender_id].process is not None:
                 print("poll", self._chat_info[sender_id].process.poll())
             pass
         else:
+            print("DISPLAY")
+            print(local_port)
+            print(self._chat_info[sender_id].process)
+            if self._chat_info[sender_id].process is not None:
+                print("poll", self._chat_info[sender_id].process.poll())
             self._push_message_into_messaging_window(sender_id, local_port, message)
 
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
