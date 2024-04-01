@@ -62,11 +62,11 @@ class ClientConnectionManager(ConnectionManager):
         reader_socket.bind(('::1', 20002))
 
         while True:
-            data, addr = reader_socket.recvfrom(1024)
-            print(f"Received message from {addr}: {data}")
+            message, addr = reader_socket.recvfrom(1024)
+            print(f"Received message from {addr}: {message}")
             if addr[0] != "::1": continue
-            who, data = data[:DIGEST_SIZE], data[DIGEST_SIZE:]
-            self._send_message_to(data, who)
+            encoded_recipient_id, message = message[:DIGEST_SIZE], message[DIGEST_SIZE:]
+            self._send_message_to(encoded_recipient_id, message)
 
     def register_to_server(self) -> None:
         # Don't allow double registration.
