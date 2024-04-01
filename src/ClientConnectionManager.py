@@ -30,7 +30,7 @@ class ClientConnectionManager(ConnectionManager):
     _cert = None
     _chat_info: dict[bytes, ChatInfo]  # ID -> (Shared secret, Public key, Ready)
     _kex_pub_keys: dict[bytes, bytes]  # ID -> Public Key
-    _username: bytes
+    _my_id: bytes
     _secret_key: rsa.RSAPrivateKey
     _public_key: rsa.RSAPublicKey
     _chats: dict[bytes, list[bytes]]  # ID -> [Raw Message]
@@ -38,7 +38,7 @@ class ClientConnectionManager(ConnectionManager):
     def __init__(self):
         super().__init__()
         self._server_ready = False
-        self._username = b""
+        self._my_id = b""
         self._chat_info = {}
         self._kex_pub_keys = {}
 
@@ -78,7 +78,7 @@ class ClientConnectionManager(ConnectionManager):
         if os.path.exists("src/_my_keys"):
             self._secret_key = load_pem_private_key(open("src/_my_keys/private_key.pem", "rb").read(), password=None)
             self._public_key = load_pem_public_key(open("src/_my_keys/public_key.pem", "rb").read())
-            self._username = open("src/_my_keys/identifier.txt", "rb").read()
+            self._my_id = open("src/_my_keys/identifier.txt", "rb").read()
             self._cert = open("src/_my_keys/certificate.pem", "rb").read()
             self._handle_error(IPv6Address("::1"), b"Already registered.")
             return
@@ -89,7 +89,7 @@ class ClientConnectionManager(ConnectionManager):
     def register_to_server_internal(self, username: str) -> None:
         # Create a username (hash = ID), and generate a key pair.
         hashed_username = HASH_ALGORITHM(username.encode()).digest()
-        self._username = hashed_username
+        self._my_id = hashed_username
         self._secret_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         self._public_key = self._secret_key.public_key()
         print("Generated asymmetric RSA key pair")
@@ -133,7 +133,9 @@ class ClientConnectionManager(ConnectionManager):
 
         # Encrypt the message and send it.
         encrypted_message = self._encrypt_message(chat.shared_secret, message)
-        self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, self._username + recipient_id + encrypted_message, to_server=True)
+
+        sending_data = recipient_id + encrypted_message
+        self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, sending_data, to_server=True)
 
     def _handle_local_command(self, command: str) -> None:
         if not " " in command:
@@ -225,7 +227,7 @@ class ClientConnectionManager(ConnectionManager):
 
     def _prepare_for_solo_chat(self, addr: IPv6Address, data: bytes) -> None:
         # Get the chat initiator's username and public key.
-        chat_initiator_username = data[:DIGEST_SIZE]
+        chat_initiator_id = data[:DIGEST_SIZE]
         chat_initiator_public_key = data[DIGEST_SIZE:-IP_SIZE]
         chat_initiator_ip_address = IPv6Address(data[-IP_SIZE:])
 
@@ -245,10 +247,15 @@ class ClientConnectionManager(ConnectionManager):
                 salt_length=padding.PSS.MAX_LENGTH),
             algorithm=hashes.SHA256())
 
-        # Send the signed KEM to the chat initiator.
-        self._chat_info[chat_initiator_username] = ChatInfo(shared_secret=shared_secret)
+        # Store the shared secret.
+        current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
+        current_stored_keys[b64encode(chat_initiator_id).decode()] = {"shared_secret": b64encode(shared_secret).decode()}
+        json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
 
-        sending_data = self._username + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
+        # Send the signed KEM to the chat initiator.
+        self._chat_info[chat_initiator_id] = ChatInfo(shared_secret=shared_secret)
+
+        sending_data = self._my_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
         self._send_command(ConnectionProtocol.INVITE_ACK, chat_initiator_ip_address, sending_data)
 
     def _handle_invite_ack(self, addr: IPv6Address, data: bytes) -> None:
@@ -301,6 +308,7 @@ class ClientConnectionManager(ConnectionManager):
                 algorithm=hashes.SHA256(),
                 label=None))
 
+        # Store the shared secret.
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
         current_stored_keys[b64encode(chat_receiver_id).decode()] = {"shared_secret": b64encode(shared_secret).decode()}
         json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
