@@ -137,7 +137,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Encrypt the message and send it.
         self._chats[recipient_id].append(Message(message_bytes=message, am_i_sender=True))
-        encrypted_message = self._encrypt_message(chat.shared_secret, message)
+        encrypted_message = self._encrypt_message(chat.shared_secret, message + b"\n")
 
         sending_data = recipient_id + encrypted_message
         self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, sending_data, to_server=True)
