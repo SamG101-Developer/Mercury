@@ -338,7 +338,7 @@ class ClientConnectionManager(ConnectionManager):
     def _handle_node_online(self, addr: IPv6Address, data: bytes) -> None:
         # Verify the node's certificate and extract the public key.
         certificate_sig = data[:RSA_SIGNATURE_SIZE]
-        certificate_raw = data[RSA_SIGNATURE_SIZE:]
+        certificate_raw = data[RSA_SIGNATURE_SIZE:-IP_SIZE]
 
         try:
             server_public_key = open("src/_server_keys/public_key.pem", "rb").read()
