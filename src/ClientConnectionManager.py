@@ -25,6 +25,7 @@ def popen_and_call(on_exit_function, *args, **kwargs):
     def in_thread():
         proc = subprocess.Popen(*args, **kwargs)
         proc.wait()
+        print("proc done :(")
         on_exit_function()
 
     thread = Thread(target=in_thread)
