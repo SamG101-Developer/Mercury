@@ -21,18 +21,6 @@ from src.Crypto import *
 SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
 
 
-# def popen_and_call(on_exit_function, *args, **kwargs):
-#     def in_thread():
-#         proc = subprocess.Popen(*args, **kwargs)
-#         proc.wait()
-#         print("proc done :(")
-#         on_exit_function()
-#
-#     thread = Thread(target=in_thread)
-#     thread.start()
-#     return thread
-
-
 @dataclass(kw_only=True)
 class ChatInfo:
     shared_secret: bytes
@@ -52,41 +40,53 @@ class ClientConnectionManager(ConnectionManager):
 
     def __init__(self):
         super().__init__()
+
+        # Initialize attributes
         self._server_ready = False
         self._my_id = b""
         self._chat_info = {}
         self._kex_pub_keys = {}
         self._chats = {}
 
+        # Load any pre-known chat keys, and initiate the boot sequence.
         self._load_chat_info()
         self._boot_sequence()
+
+        # Setup the local socket for extra shells to message with.
         Thread(target=self._setup_local_messaging_reader_port).start()
 
+        # Listen to commands from the client user input.
         while True:
             command = input("Cmd > ")
             self._handle_local_command(command)
 
     def _load_chat_info(self) -> None:
-        # Get the known keys and check if the recipient is already in a chat.
+        # If the file is missing, create it.
         if not os.path.exists("src/_chat_keys/keys.json"):
             os.mkdir("src/_chat_keys")
             open("src/_chat_keys/keys.json", "w").write("{}")
 
+        # Load known keys and initialize a chat list of messages.
         chats = json.load(open("src/_chat_keys/keys.json", "r"))
         for recipient_id in chats.keys():
             self._chat_info[b64decode(recipient_id)] = ChatInfo(shared_secret=b64decode(chats[recipient_id]["shared_secret"]))
-            self._chats[b64decode(recipient_id)] = []
+            self._chats[b64decode(recipient_id)] = []  # todo: load saved messages here
 
     def _boot_sequence(self):
+        # Register this node with the server (only happens for a new user). Wait for the certificate.
         self.register_to_server()
-        while not self._cert:
-            pass
+        while not self._cert: pass
+
+        # Notify the server that the client is online.
         self.tell_server_client_is_online()
 
     def _setup_local_messaging_reader_port(self):
+        # The reader socket will receive messages from the client messaging shell (what the user types, to send to other
+        # nodes)
         reader_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         reader_socket.bind(('::1', 20002))
 
+        # Continuously receive messages from the client messaging shell and call the handler function.
         while True:
             message, addr = reader_socket.recvfrom(1024)
             if addr[0] != "::1": continue
@@ -171,6 +171,14 @@ class ClientConnectionManager(ConnectionManager):
             case "chat":
                 Thread(target=self._open_chat_with, args=(data, )).start()
 
+            # When the user wants to create a group chat
+            case "makegroup":
+                Thread(target=self._make_group_chat, args=(data, )).start()
+
+            # When the user wants to invite someone to a group chat
+            case "invitetogroup":
+                Thread(target=self._invite_to_group_chat, args=(data, )).start()
+
     def _handle_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         match command:
             # When the server confirms the registration and sends the client a certificate.
@@ -191,7 +199,7 @@ class ClientConnectionManager(ConnectionManager):
 
             # When the server confirms the creation of a group chat.
             case ConnectionProtocol.CREATE_GC_ACK:
-                ...
+                self._handle_group_chat_creation_ack(addr, data)
 
             # When the server tells the client to prepare for a solo chat.
             case ConnectionProtocol.PREP_FOR_SOLO:
@@ -248,6 +256,14 @@ class ClientConnectionManager(ConnectionManager):
         self._server_ready = True
         print("Server ready for communication.")
 
+    def _handle_group_chat_creation_ack(self, addr: IPv6Address, data: bytes) -> None:
+        # Extract the group id from the data.
+        group_id = data[:DIGEST_SIZE]
+
+        # Store the group id and create an empty chat list.
+        self._chat_info[group_id] = ChatInfo(shared_secret=b"")
+        self._chats[group_id] = []
+
     def _prepare_for_solo_chat(self, addr: IPv6Address, data: bytes) -> None:
         # Get the chat initiator's username and public key.
         chat_initiator_id = data[:DIGEST_SIZE]
@@ -275,10 +291,11 @@ class ClientConnectionManager(ConnectionManager):
         current_stored_keys[b64encode(chat_initiator_id).decode()] = {"shared_secret": b64encode(shared_secret).decode()}
         json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
 
-        # Send the signed KEM to the chat initiator.
+        # Load the shared secret into the chat info and create an empty chat list.
         self._chat_info[chat_initiator_id] = ChatInfo(shared_secret=shared_secret)
         self._chats[chat_initiator_id] = []
 
+        # Send the signed KEM to the chat initiator.
         sending_data = self._my_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
         self._send_command(ConnectionProtocol.INVITE_ACK, chat_initiator_ip_address, sending_data)
 
@@ -337,6 +354,7 @@ class ClientConnectionManager(ConnectionManager):
         current_stored_keys[b64encode(chat_receiver_id).decode()] = {"shared_secret": b64encode(shared_secret).decode()}
         json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
 
+        # Load the shared secret into the chat info and create an empty chat list.
         self._chat_info[chat_receiver_id] = ChatInfo(shared_secret=shared_secret)
         self._chats[chat_receiver_id] = []
 
@@ -363,7 +381,6 @@ class ClientConnectionManager(ConnectionManager):
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
         sending_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         sending_socket.sendto(message, ("::1", local_port))
-        # self._chats[sender_id].pop()
 
     def _handle_node_online(self, addr: IPv6Address, data: bytes) -> None:
         # Verify the node's certificate and extract the public key.
@@ -414,26 +431,42 @@ class ClientConnectionManager(ConnectionManager):
         for message in self._chats[recipient_id].copy():
             self._push_message_into_messaging_window(recipient_id, int(port), message.message_bytes)
 
+    def _make_group_chat(self, data: str) -> None:
+        # Get the group ID, and send it to the server.
+        group_id = HASH_ALGORITHM(data.encode()).digest()
+        self._send_command(ConnectionProtocol.CREATE_GC, SERVER_IP, group_id, to_server=True)
+
+        # Wait for the server to confirm the group chat creation.
+        while group_id not in self._chat_info.keys():
+            pass
+
+    def _invite_to_group_chat(self, data: str) -> None:
+        # Get the group ID and recipient IDs to add to the group chat.
+        group_id, *recipient_ids = data.split(" ")
+        self._send_command(ConnectionProtocol.GC_INVITE, SERVER_IP, group_id + b" ".join(recipient_ids), to_server=True)
+
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")
 
     def _encrypt_message(self, shared_secret: bytes, message: bytes) -> bytes:
-        # Use AES GCM to encrypt the message.
+        # Create an IV and register the cipher.
         iv = os.urandom(12)
         cipher = Cipher(algorithms.AES(shared_secret), modes.GCM(iv))
         encryptor = cipher.encryptor()
+
+        # Encrypt the message and return the IV, tag and ciphertext.
         ciphertext = encryptor.update(message) + encryptor.finalize()
         tag = encryptor.tag
-
         return iv + tag + ciphertext
 
     def _decrypt_message(self, shared_secret: bytes, encrypted_message: bytes) -> bytes:
-        # Use AES GCM to decrypt the message.
+        # Extract the IV, tag and ciphertext from the encrypted message.
         iv = encrypted_message[:12]
         tag = encrypted_message[12:28]
         ciphertext = encrypted_message[28:]
+
+        # Register the cipher and decrypt the message.
         cipher = Cipher(algorithms.AES(shared_secret), modes.GCM(iv, tag))
         decryptor = cipher.decryptor()
         message = decryptor.update(ciphertext) + decryptor.finalize()
-
         return message

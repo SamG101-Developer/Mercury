@@ -20,6 +20,7 @@ class ServerConnectionManager(ConnectionManager):
     _node_pub_keys: dict[bytes, bytes]   # ID -> Public key
     _node_certs: dict[bytes, bytes]      # ID -> Certificate
     _message_queue: dict[bytes, dict[bytes, tuple[bytes, bytes]]]  # ID -> {message_id -> (sender, message)}
+    _groups_multicast_addresses: dict[bytes, IPv6Address]  # ID -> Multicast address
 
     JSON_LOCK = Lock()
 
@@ -33,6 +34,7 @@ class ServerConnectionManager(ConnectionManager):
         self._node_pub_keys = {}
         self._node_certs = {}
         self._message_queue = {}
+        self._groups_multicast_addresses = {}
 
         # Either load the key pair from disk or generate a new one.
         if not os.path.exists("src/_server_keys"):
@@ -86,11 +88,15 @@ class ServerConnectionManager(ConnectionManager):
 
             # When a client wants to create a group chat.
             case ConnectionProtocol.CREATE_GC:
-                ...
+                self._handle_create_a_group_chat(addr, data)
 
             # When a client has confirmed the group chat creation.
-            case ConnectionProtocol.GC_CONFIRM:
-                ...
+            case ConnectionProtocol.GC_INVITE:
+                self._handle_invite_to_group_chat(addr, data)
+
+            # When a client sends a message to a group
+            case ConnectionProtocol.SEND_GROUP_MESSAGE:
+                self._handle_send_group_message(addr, data)
 
             # When a client has acknowledged either an individual or group message.
             case ConnectionProtocol.MESSAGE_ACK:
@@ -235,6 +241,19 @@ class ServerConnectionManager(ConnectionManager):
         if recipient_id in self._node_ips:
             recipient_addr = self._node_ips[recipient_id]
             self._send_command(ConnectionProtocol.SEND_MESSAGE, recipient_addr, message_id + sender_id + encrypted_message)
+
+    def _handle_create_a_group_chat(self, addr: IPv6Address, data: bytes) -> None:
+        # Determine the next available multicast address for a group.
+        next_available_suffix = len(self._groups_multicast_addresses)
+        multicast_address = f"ff02::1:{next_available_suffix}"
+        group_id = data[:DIGEST_SIZE]
+        self._groups_multicast_addresses[group_id] = IPv6Address(multicast_address)
+
+        # Send the ACK to the client.
+        self._send_command(ConnectionProtocol.CREATE_GC_ACK, addr, group_id)
+
+    def _handle_invite_to_group_chat(self, addr: IPv6Address, data: bytes) -> None:
+        ...
 
     def _handle_message_ack(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the sender's username and the message_id.
