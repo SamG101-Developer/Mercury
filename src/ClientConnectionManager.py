@@ -93,7 +93,6 @@ class ClientConnectionManager(ConnectionManager):
             self._handle_error(IPv6Address("::1"), b"Already registered.")
             return
 
-        os.mkdir("src/_my_keys")
         self.register_to_server_internal(input("Username: "))
 
     def register_to_server_internal(self, username: str) -> None:
@@ -108,6 +107,7 @@ class ClientConnectionManager(ConnectionManager):
         # Save the key pair to disk.
         secret_pem = self._secret_key.private_bytes(encoding=Encoding.PEM, format=PrivateFormat.PKCS8, encryption_algorithm=NoEncryption())
         public_pem = self._public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.PKCS1)
+        os.mkdir("src/_my_keys")
         open("src/_my_keys/private_key.pem", "wb").write(secret_pem)
         open("src/_my_keys/public_key.pem", "wb").write(public_pem)
         open("src/_my_keys/username.txt", "w").write(username)
