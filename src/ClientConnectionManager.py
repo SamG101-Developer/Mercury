@@ -317,6 +317,10 @@ class ClientConnectionManager(ConnectionManager):
         sender_id = data[DIGEST_SIZE:DIGEST_SIZE * 2]
         encrypted_message = data[DIGEST_SIZE * 2:]
 
+        # Wait for the sender to be in teh chat info (could still be processing KEM)
+        while sender_id not in self._chat_info.keys():
+            pass
+
         # Decrypt the message and store it.
         shared_secret = self._chat_info[sender_id].shared_secret
         message = self._decrypt_message(shared_secret, encrypted_message)
