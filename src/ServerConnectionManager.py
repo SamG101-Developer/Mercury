@@ -83,8 +83,8 @@ class ServerConnectionManager(ConnectionManager):
                 self._handle_get_node_info(addr, data)
 
             # When a client wants a list of IPs to invite to a group.
-            case ConnectionProtocol.GC_IP_REQUEST:
-                self._handle_gc_ip_request(addr, data)
+            case ConnectionProtocol.GC_GET_NODE_INFO:
+                self._handle_gc_get_node_info(addr, data)
 
             # When a client sends a message to another (individual) client.
             case ConnectionProtocol.SEND_MESSAGE:
@@ -210,7 +210,7 @@ class ServerConnectionManager(ConnectionManager):
         else:
             self._send_command(ConnectionProtocol.NODE_INFO, addr, self._node_certs[recipient_id] + self._node_ips[recipient_id].packed)
 
-    def _handle_gc_ip_request(self, addr: IPv6Address, data: bytes) -> None:
+    def _handle_gc_get_node_info(self, addr: IPv6Address, data: bytes) -> None:
         # todo: needs auth from server
 
         # Split the data into the recipients' IDs (split every DIGEST_SIZE bytes).
@@ -222,7 +222,10 @@ class ServerConnectionManager(ConnectionManager):
             if recipient_id not in self._node_ips:
                 self._send_command(ConnectionProtocol.ERROR, addr, f"Recipient {recipient_id} is not online.".encode())
                 return
-            ip_addresses[b64encode(recipient_id).decode()] = self._node_ips[recipient_id].exploded
+            ip_addresses[b64encode(recipient_id).decode()] = {
+                "ip": self._node_ips[recipient_id].exploded,
+                "cert": b64encode(self._node_certs[recipient_id])
+            }
 
         # Send the IP addresses to the client.
         sending_data = json.dumps(ip_addresses).encode()

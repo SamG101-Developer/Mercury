@@ -215,7 +215,7 @@ class ClientConnectionManager(ConnectionManager):
 
             # When a list of IPs are sent to invite members to a group chat
             case ConnectionProtocol.GC_NODE_INFO:
-                self._handle_gc_node_ip_info(addr, data)
+                self._handle_gc_node_info(addr, data)
 
             case ConnectionProtocol.ERROR:
                 self._handle_error(addr, data)
@@ -261,8 +261,6 @@ class ClientConnectionManager(ConnectionManager):
         self._chat_info[group_id] = ChatInfo(shared_secret=os.urandom(32))
         self._chats[group_id] = []
         self._group_chat_multicast_addresses[group_id] = multicast_address
-
-        print("ACKED GC", group_id, multicast_address)
 
         # Connect the socket to the multicast receiver.
         self._attach_to_multicast_group(multicast_address)
@@ -424,12 +422,13 @@ class ClientConnectionManager(ConnectionManager):
         sending_data = self._my_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
         self._send_command(ConnectionProtocol.SOLO_INVITE, recipient_ip_address, sending_data)
 
-    def _handle_gc_node_ip_info(self, addr: IPv6Address, data: bytes) -> None:
+    def _handle_gc_node_info(self, addr: IPv6Address, data: bytes) -> None:
         # todo: needs auth from server
 
         ip_list = json.loads(data.decode())
-        for recipient_id, ip_address in ip_list.items():
-            self._temp_node_ip_addresses[b64decode(recipient_id)] = IPv6Address(ip_address)
+        for recipient_id, info in ip_list.items():
+            self._temp_node_ip_addresses[b64decode(recipient_id)] = IPv6Address(info["ip"])
+            self._node_certs[b64decode(recipient_id)] = b64decode(info["cert"])
 
     def _open_chat_with(self, data: str) -> None:
         # Get the recipient id.
@@ -481,7 +480,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Load the IPs of the recipients for their invites.
         sending_data = b"".join(recipient_ids)
-        self._send_command(ConnectionProtocol.GC_IP_REQUEST, SERVER_IP, sending_data, to_server=True)
+        self._send_command(ConnectionProtocol.GC_GET_NODE_INFO, SERVER_IP, sending_data, to_server=True)
 
         # Store the shared secret.
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
@@ -492,10 +491,8 @@ class ClientConnectionManager(ConnectionManager):
 
         for recipient_id in recipient_ids:
             # Wait for the recipient to be in the ip address map.
-            print("BEFORE")
             while recipient_id not in self._temp_node_ip_addresses.keys():
                 pass
-            print("AFTER")
 
             recipient_public_key = self._node_certs[recipient_id][DIGEST_SIZE:]
             recipient_ip_address = self._temp_node_ip_addresses[recipient_id]
