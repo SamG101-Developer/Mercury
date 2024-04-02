@@ -272,6 +272,7 @@ class ClientConnectionManager(ConnectionManager):
         # Extract the multicast address and group id from the data.
         multicast_address = IPv6Address(data[:IP_SIZE])
         group_id = data[IP_SIZE:IP_SIZE + DIGEST_SIZE]
+        self._chats[group_id] = []
 
         # Use the solo invite handler to process the group invite (store keys etc.).
         self._handle_solo_invite(addr, data[IP_SIZE:])
@@ -462,6 +463,7 @@ class ClientConnectionManager(ConnectionManager):
         while group_id not in self._chat_info.keys():
             pass
 
+        # Load the shared secret into the chat info and create an empty chat list.
         group_shared_secret = self._chat_info[group_id].shared_secret
 
         for recipient_username in recipient_usernames:
@@ -472,9 +474,6 @@ class ClientConnectionManager(ConnectionManager):
         current_stored_keys[b64encode(group_id).decode()] = {"shared_secret": b64encode(group_shared_secret).decode()}
         json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
 
-        # Load the shared secret into the chat info and create an empty chat list.
-        self._chat_info[group_id] = ChatInfo(shared_secret=group_shared_secret)
-        self._chats[group_id] = []
         multicast_address = self._group_chat_multicast_addresses[group_id].packed
 
         for recipient_username in recipient_usernames:
