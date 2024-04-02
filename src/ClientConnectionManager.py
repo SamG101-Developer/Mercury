@@ -455,6 +455,11 @@ class ClientConnectionManager(ConnectionManager):
         # Get the group ID and recipient IDs to add to the group chat.
         group_name, *recipient_usernames = data.split(" ")
         group_id = HASH_ALGORITHM(group_name.encode()).digest()
+
+        # Wait for the group chat to be created (only relevant if the invite is right after group creation).
+        while group_id not in self._chat_info.keys():
+            pass
+
         group_shared_secret = self._chat_info[group_id].shared_secret
 
         for recipient_username in recipient_usernames:
