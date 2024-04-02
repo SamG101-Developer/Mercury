@@ -210,10 +210,6 @@ class ClientConnectionManager(ConnectionManager):
             case ConnectionProtocol.GC_INVITE:
                 self._handle_group_chat_invite(addr, data)
 
-            # When the server sends a group message to the client.
-            case ConnectionProtocol.SEND_GROUP_MESSAGE:
-                ...
-
             # When a node is online (told so by server, + their public key)
             case ConnectionProtocol.NODE_INFO:
                 self._handle_node_online(addr, data)
