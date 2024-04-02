@@ -272,6 +272,7 @@ class ClientConnectionManager(ConnectionManager):
         # Extract the multicast address and group id from the data.
         multicast_address = IPv6Address(data[:IP_SIZE])
         group_id = data[IP_SIZE:IP_SIZE + DIGEST_SIZE]
+        self._chat_info[group_id] = ChatInfo(shared_secret=b"")  # Shared secret loaded later.
         self._chats[group_id] = []
 
         # Use the solo invite handler to process the group invite (store keys etc.).
