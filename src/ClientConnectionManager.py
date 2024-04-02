@@ -456,6 +456,7 @@ class ClientConnectionManager(ConnectionManager):
         # Get the group ID and recipient IDs to add to the group chat.
         group_name, *recipient_usernames = data.split(" ")
         group_id = HASH_ALGORITHM(group_name.encode()).digest()
+        print(group_id, recipient_usernames)
 
         # Wait for the group chat to be created (only relevant if the invite is right after group creation).
         while group_id not in self._chat_info.keys():
