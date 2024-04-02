@@ -262,6 +262,7 @@ class ClientConnectionManager(ConnectionManager):
         self._chat_info[group_id] = ChatInfo(shared_secret=os.urandom(32))
         self._chats[group_id] = []
         self._group_chat_multicast_addresses[group_id] = multicast_address
+        print(f"Group chat created with ID: {b64encode(group_id).decode()}")
 
         # Connect the socket to the multicast receiver.
         self._attach_to_multicast_group(multicast_address)
@@ -440,6 +441,7 @@ class ClientConnectionManager(ConnectionManager):
         recipient_id = HASH_ALGORITHM(data.encode()).digest()
 
         # If the recipient is not known, invite them to chat.
+        print("Chat exists?", recipient_id in self._chat_info.keys())
         if recipient_id not in self._chat_info.keys():
             self._send_command(ConnectionProtocol.GET_NODE_INFO, SERVER_IP, recipient_id, to_server=True)
         while recipient_id not in self._chat_info.keys():
