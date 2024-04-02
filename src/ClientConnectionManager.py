@@ -501,7 +501,7 @@ class ClientConnectionManager(ConnectionManager):
             while recipient_id not in self._temp_node_ip_addresses.keys():
                 pass
 
-            recipient_public_key = self._node_certs[recipient_id][DIGEST_SIZE:]
+            recipient_public_key = self._node_certs[recipient_id][RSA_SIGNATURE_SIZE + DIGEST_SIZE:]
             recipient_ip_address = self._temp_node_ip_addresses[recipient_id]
             del self._temp_node_ip_addresses[recipient_id]
 

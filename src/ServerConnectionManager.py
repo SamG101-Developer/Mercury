@@ -225,7 +225,7 @@ class ServerConnectionManager(ConnectionManager):
         sending_data = recipient_id + self._node_ips[recipient_id].packed + self._node_certs[recipient_id]
 
         # Send the IP addresses to the client.
-        print("Sending IP addresses to client: ", sending_data)
+        print("Sending node info to client: ", sending_data)
         self._send_command(ConnectionProtocol.GC_NODE_INFO, addr, sending_data)
 
     def _handle_send_message(self, addr: IPv6Address, data: bytes) -> None:
