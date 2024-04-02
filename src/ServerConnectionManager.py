@@ -198,13 +198,13 @@ class ServerConnectionManager(ConnectionManager):
 
     def _handle_get_node_info(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the recipient's username and the message.
-        recipient_username = data[:DIGEST_SIZE]
+        recipient_id = data[:DIGEST_SIZE]
 
         # Check if the recipient exists / is online.
-        if recipient_username not in self._node_ips:
-            self._send_command(ConnectionProtocol.ERROR, addr, b"Recipient is not online.")
+        if recipient_id not in self._node_ips:
+            self._send_command(ConnectionProtocol.ERROR, addr, f"Recipient {recipient_id} is not online.".encode())
         else:
-            self._send_command(ConnectionProtocol.NODE_INFO, addr, self._node_certs[recipient_username] + self._node_ips[recipient_username].packed)
+            self._send_command(ConnectionProtocol.NODE_INFO, addr, self._node_certs[recipient_id] + self._node_ips[recipient_id].packed)
 
     def _handle_send_message(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the recipient's username and the encrypted_message.
@@ -232,6 +232,7 @@ class ServerConnectionManager(ConnectionManager):
         # Store the group's multicast address and the node's IP.
         self._groups_multicast_addresses[group_id] = IPv6Address(multicast_address)
         self._node_ips[group_id] = IPv6Address(multicast_address)
+        print(f"Registered group {group_id}" + f" with address {multicast_address}.")
 
         # Send the ACK to the client.
         sending_data = group_id + self._groups_multicast_addresses[group_id].packed
