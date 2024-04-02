@@ -90,6 +90,10 @@ class ServerConnectionManager(ConnectionManager):
             case ConnectionProtocol.SEND_MESSAGE:
                 self._handle_send_message(addr, data)
 
+            # When a client sends a group message to a group.
+            case ConnectionProtocol.GC_SEND_MESSAGE:
+                self.handle_gc_send_message(addr, data)
+
             # When a client wants to create a group chat.
             case ConnectionProtocol.CREATE_GC:
                 self._handle_create_a_group_chat(addr, data)
@@ -228,11 +232,11 @@ class ServerConnectionManager(ConnectionManager):
         print("Sending node info to client: ", sending_data)
         self._send_command(ConnectionProtocol.GC_NODE_INFO, addr, sending_data)
 
-    def _handle_send_message(self, addr: IPv6Address, data: bytes) -> None:
-        # Split the data into the recipient's username and the encrypted_message.
+    def _handle_send_message(self, addr: IPv6Address, data: bytes, group_id: bytes = b"") -> None:
+        # Split the data into the recipient's username, and the encrypted_message.
         recipient_id = data[:DIGEST_SIZE]
         encrypted_message = data[DIGEST_SIZE:]
-        sender_id = [k for k, v in self._node_ips.items() if v == addr][0]
+        sender_id = group_id or [k for k, v in self._node_ips.items() if v == addr][0]
 
         # Queue the message for the recipient.
         message_id = HASH_ALGORITHM(str(time.time()).encode() + encrypted_message).digest()
@@ -244,6 +248,11 @@ class ServerConnectionManager(ConnectionManager):
         if recipient_id in self._node_ips:
             recipient_addr = self._node_ips[recipient_id]
             self._send_command(ConnectionProtocol.SEND_MESSAGE, recipient_addr, message_id + sender_id + encrypted_message)
+
+    def handle_gc_send_message(self, addr: IPv6Address, data: bytes) -> None:
+        group_id = data[:DIGEST_SIZE]
+        data = data[DIGEST_SIZE:]
+        self._handle_send_message(addr, data, group_id)
 
     def _handle_create_a_group_chat(self, addr: IPv6Address, data: bytes) -> None:
         # Determine the next available multicast address for a group.

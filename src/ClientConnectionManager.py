@@ -92,10 +92,17 @@ class ClientConnectionManager(ConnectionManager):
 
         # Continuously receive messages from the client messaging shell and call the handler function.
         while True:
+            # Receive the message and check if it is from the local machine.
             message, addr = reader_socket.recvfrom(1024)
             if addr[0] != "::1": continue
             encoded_recipient_id, message = message[:DIGEST_SIZE], message[DIGEST_SIZE:]
-            self._send_message_to(message, encoded_recipient_id)
+
+            # Check if the message is from a group chat or a solo chat.
+            port_from = addr[1]
+            group_id = next((who for who, info in self._chat_info.items() if info.local_port == port_from and who in self._group_chat_multicast_addresses.keys()), b"")
+
+            # Send the message
+            self._send_message_to(message, encoded_recipient_id, for_group=group_id)
 
     def register_to_server(self) -> None:
         # Don't allow double registration.
@@ -152,7 +159,7 @@ class ClientConnectionManager(ConnectionManager):
         while not self._server_ready:
             pass
 
-    def _send_message_to(self, message: bytes, recipient_id: bytes) -> None:
+    def _send_message_to(self, message: bytes, recipient_id: bytes, for_group: bytes = b"") -> None:
         # Get the recipient's shared secret and public key.
         chat = self._chat_info[recipient_id]
 
@@ -162,8 +169,12 @@ class ClientConnectionManager(ConnectionManager):
         encrypted_message = self._encrypt_message(chat.shared_secret, self._my_username.encode() + b" > " + message)
 
         # Send the message to the server.
-        sending_data = recipient_id + encrypted_message
-        self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, sending_data, to_server=True)
+        if not for_group:
+            sending_data = recipient_id + encrypted_message
+            self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, sending_data, to_server=True)
+        else:
+            sending_data = for_group + recipient_id + encrypted_message
+            self._send_command(ConnectionProtocol.GC_SEND_MESSAGE, SERVER_IP, sending_data, to_server=True)
 
     def _handle_local_command(self, command: str) -> None:
         if " " not in command:
@@ -262,7 +273,6 @@ class ClientConnectionManager(ConnectionManager):
         self._chat_info[group_id] = ChatInfo(shared_secret=os.urandom(32))
         self._chats[group_id] = []
         self._group_chat_multicast_addresses[group_id] = multicast_address
-        print(f"Group chat created with ID: {b64encode(group_id).decode()}")
 
         # Connect the socket to the multicast receiver.
         self._attach_to_multicast_group(multicast_address)
@@ -274,8 +284,6 @@ class ClientConnectionManager(ConnectionManager):
         self._server_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, multicast_request)
 
     def _handle_group_chat_invite(self, addr: IPv6Address, data: bytes) -> None:
-        print(f"invited to a group chat: {data[IP_SIZE:]}")
-
         # Extract the multicast address and group id from the data.
         multicast_address = IPv6Address(data[:IP_SIZE])
         group_id = data[IP_SIZE:IP_SIZE + DIGEST_SIZE]
@@ -441,7 +449,6 @@ class ClientConnectionManager(ConnectionManager):
         recipient_id = HASH_ALGORITHM(data.encode()).digest()
 
         # If the recipient is not known, invite them to chat.
-        print("Chat exists?", recipient_id in self._chat_info.keys())
         if recipient_id not in self._chat_info.keys():
             self._send_command(ConnectionProtocol.GET_NODE_INFO, SERVER_IP, recipient_id, to_server=True)
         while recipient_id not in self._chat_info.keys():
