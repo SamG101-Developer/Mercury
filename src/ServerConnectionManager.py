@@ -213,8 +213,8 @@ class ServerConnectionManager(ConnectionManager):
     def _handle_gc_ip_request(self, addr: IPv6Address, data: bytes) -> None:
         # todo: needs auth from server
 
-        # Split the data into the recipients' IDs.
-        recipient_ids = data.split(b" ")
+        # Split the data into the recipients' IDs (split every DIGEST_SIZE bytes).
+        recipient_ids = [data[i:i + DIGEST_SIZE] for i in range(0, len(data), DIGEST_SIZE)]
         ip_addresses = {}
 
         # Check if the recipients exist / are online.
