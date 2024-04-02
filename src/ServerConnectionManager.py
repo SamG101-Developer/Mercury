@@ -90,14 +90,6 @@ class ServerConnectionManager(ConnectionManager):
             case ConnectionProtocol.CREATE_GC:
                 self._handle_create_a_group_chat(addr, data)
 
-            # When a client has confirmed the group chat creation.
-            case ConnectionProtocol.GC_INVITE:
-                self._handle_invite_to_group_chat(addr, data)
-
-            # When a client sends a message to a group
-            case ConnectionProtocol.SEND_GROUP_MESSAGE:
-                self._handle_send_group_message(addr, data)
-
             # When a client has acknowledged either an individual or group message.
             case ConnectionProtocol.MESSAGE_ACK:
                 self._handle_message_ack(addr, data)
