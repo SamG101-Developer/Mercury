@@ -482,8 +482,10 @@ class ClientConnectionManager(ConnectionManager):
         for recipient_username in recipient_usernames:
             # Wait for the recipient to be in the ip address map.
             recipient_id = HASH_ALGORITHM(recipient_username.encode()).digest()
+            print("BEFORE")
             while recipient_id not in self._temp_node_ip_addresses.keys():
                 pass
+            print("AFTER")
 
             recipient_public_key = self._node_certs[recipient_id][DIGEST_SIZE:]
             recipient_ip_address = self._temp_node_ip_addresses[recipient_id]
