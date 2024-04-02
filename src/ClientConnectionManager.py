@@ -452,12 +452,13 @@ class ClientConnectionManager(ConnectionManager):
         self._send_command(ConnectionProtocol.CREATE_GC, SERVER_IP, group_id, to_server=True)
 
         # Wait for the server to confirm the group chat creation.
-        while group_id not in self._chat_info.keys():
-            pass
+        # while group_id not in self._chat_info.keys():
+        #     pass
 
     def _invite_to_group_chat(self, data: str) -> None:
         # Get the group ID and recipient IDs to add to the group chat.
-        group_id, *recipient_usernames = data.split(" ")
+        group_name, *recipient_usernames = data.split(" ")
+        group_id = HASH_ALGORITHM(group_name.encode()).digest()
         group_shared_secret = self._chat_info[group_id].shared_secret
 
         for recipient_username in recipient_usernames:
