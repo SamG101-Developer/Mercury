@@ -38,7 +38,6 @@ class ClientConnectionManager(ConnectionManager):
     _secret_key: rsa.RSAPrivateKey
     _public_key: rsa.RSAPublicKey
     _chats: dict[bytes, list[Message]]  # ID -> [Raw Message]
-    _temp_node_ip_addresses: dict[bytes, IPv6Address]  # ID -> IP
 
     def __init__(self):
         super().__init__()
@@ -471,7 +470,7 @@ class ClientConnectionManager(ConnectionManager):
         # Get the group ID and recipient IDs to add to the group chat.
         group_name, *recipient_usernames = data.split(" ")
         group_id = HASH_ALGORITHM(group_name.encode()).digest()
-        print(group_id, recipient_usernames)
+        recipient_ids = [HASH_ALGORITHM(username.encode()).digest() for username in recipient_usernames]
 
         # Wait for the group chat to be created (only relevant if the invite is right after group creation).
         while group_id not in self._chat_info.keys():
@@ -480,8 +479,9 @@ class ClientConnectionManager(ConnectionManager):
         # Load the shared secret into the chat info and create an empty chat list.
         group_shared_secret = self._chat_info[group_id].shared_secret
 
-        for recipient_username in recipient_usernames:
-            self._send_command(ConnectionProtocol.GC_IP_REQUEST, SERVER_IP, group_id, to_server=True)
+        # Load the IPs of the recipients for their invites.
+        sending_data = b" ".join([recipient_usernames])
+        self._send_command(ConnectionProtocol.GC_IP_REQUEST, SERVER_IP, group_id, to_server=True)
 
         # Store the shared secret.
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
@@ -490,9 +490,8 @@ class ClientConnectionManager(ConnectionManager):
 
         multicast_address = self._group_chat_multicast_addresses[group_id].packed
 
-        for recipient_username in recipient_usernames:
+        for recipient_id in recipient_ids:
             # Wait for the recipient to be in the ip address map.
-            recipient_id = HASH_ALGORITHM(recipient_username.encode()).digest()
             print("BEFORE")
             while recipient_id not in self._temp_node_ip_addresses.keys():
                 pass
