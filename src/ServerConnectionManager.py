@@ -222,7 +222,7 @@ class ServerConnectionManager(ConnectionManager):
             if recipient_id not in self._node_ips:
                 self._send_command(ConnectionProtocol.ERROR, addr, f"Recipient {recipient_id} is not online.".encode())
                 return
-            ip_addresses[recipient_id] = self._node_ips[recipient_id]
+            ip_addresses[b64encode(recipient_id).decode()] = self._node_ips[recipient_id]
 
         # Send the IP addresses to the client.
         sending_data = json.dumps(ip_addresses).encode()

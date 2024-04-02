@@ -430,7 +430,7 @@ class ClientConnectionManager(ConnectionManager):
 
         ip_list = json.loads(data.decode())
         for recipient_id, ip_address in ip_list.items():
-            self._temp_node_ip_addresses[recipient_id] = IPv6Address(ip_address)
+            self._temp_node_ip_addresses[b64decode(recipient_id)] = IPv6Address(ip_address)
 
     def _open_chat_with(self, data: str) -> None:
         # Get the recipient id.
