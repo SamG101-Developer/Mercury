@@ -33,6 +33,7 @@ class ClientConnectionManager(ConnectionManager):
     _chat_info: dict[bytes, ChatInfo]  # ID -> ChatInfo
     _node_certs: dict[bytes, bytes]  # ID -> Certificate
     _group_chat_multicast_addresses: dict[bytes, IPv6Address]  # GroupID -> Multicast IP
+    _temp_node_ip_addresses: dict[bytes, IPv6Address]  # ID -> IP
     _my_username: str
     _my_id: bytes
     _secret_key: rsa.RSAPrivateKey
@@ -425,10 +426,14 @@ class ClientConnectionManager(ConnectionManager):
     def _handle_gc_node_info(self, addr: IPv6Address, data: bytes) -> None:
         # todo: needs auth from server
 
-        ip_list = json.loads(data.decode())
-        for recipient_id, info in ip_list.items():
-            self._temp_node_ip_addresses[b64decode(recipient_id)] = IPv6Address(info["ip"])
-            self._node_certs[b64decode(recipient_id)] = b64decode(info["cert"])
+        # Extract the recipient id, ip and certificate.
+        recipient_id = data[:DIGEST_SIZE]
+        recipient_ip = IPv6Address(data[DIGEST_SIZE:DIGEST_SIZE + IP_SIZE])
+        recipient_cert = data[DIGEST_SIZE + IP_SIZE:]
+
+        # Store the recipient's IP and certificate.
+        self._node_certs[recipient_id] = recipient_cert
+        self._temp_node_ip_addresses[recipient_id] = recipient_ip
 
     def _open_chat_with(self, data: str) -> None:
         # Get the recipient id.
@@ -479,8 +484,8 @@ class ClientConnectionManager(ConnectionManager):
         group_shared_secret = self._chat_info[group_id].shared_secret
 
         # Load the IPs of the recipients for their invites.
-        sending_data = b"".join(recipient_ids)
-        self._send_command(ConnectionProtocol.GC_GET_NODE_INFO, SERVER_IP, sending_data, to_server=True)
+        for recipient_id in recipient_ids:
+            self._send_command(ConnectionProtocol.GC_GET_NODE_INFO, SERVER_IP, recipient_id, to_server=True)
 
         # Store the shared secret.
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))

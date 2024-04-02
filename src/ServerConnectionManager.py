@@ -213,22 +213,18 @@ class ServerConnectionManager(ConnectionManager):
     def _handle_gc_get_node_info(self, addr: IPv6Address, data: bytes) -> None:
         # todo: needs auth from server
 
-        # Split the data into the recipients' IDs (split every DIGEST_SIZE bytes).
-        recipient_ids = [data[i:i + DIGEST_SIZE] for i in range(0, len(data), DIGEST_SIZE)]
-        ip_addresses = {}
+        # The recipient_id is the data.
+        recipient_id = data
 
         # Check if the recipients exist / are online.
-        for recipient_id in recipient_ids:
-            if recipient_id not in self._node_ips:
-                self._send_command(ConnectionProtocol.ERROR, addr, f"Recipient {recipient_id} is not online.".encode())
-                return
-            ip_addresses[b64encode(recipient_id).decode()] = {
-                "ip": self._node_ips[recipient_id].exploded,
-                "cert": b64encode(self._node_certs[recipient_id]).decode()
-            }
+        if recipient_id not in self._node_ips:
+            self._send_command(ConnectionProtocol.ERROR, addr, f"Recipient {recipient_id} is not online.".encode())
+            return
+
+        # Prepare the node information to send.
+        sending_data = recipient_id + self._node_ips[recipient_id].packed + self._node_certs[recipient_id]
 
         # Send the IP addresses to the client.
-        sending_data = json.dumps(ip_addresses).encode()
         print("Sending IP addresses to client: ", sending_data)
         self._send_command(ConnectionProtocol.GC_NODE_INFO, addr, sending_data)
 
