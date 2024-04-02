@@ -214,6 +214,10 @@ class ClientConnectionManager(ConnectionManager):
             case ConnectionProtocol.NODE_INFO:
                 self._handle_node_online(addr, data)
 
+            # When a list of IPs are sent to invite members to a group chat
+            case ConnectionProtocol.GC_NODE_INFO:
+                self._handle_gc_node_ip_info(addr, data)
+
             case ConnectionProtocol.ERROR:
                 self._handle_error(addr, data)
 
@@ -388,7 +392,6 @@ class ClientConnectionManager(ConnectionManager):
         recipient_id = certificate_raw[:DIGEST_SIZE]
         recipient_public_key = certificate_raw[DIGEST_SIZE:DIGEST_SIZE + RSA_PUBLIC_KEY_PEM_SIZE]
         recipient_ip_address = IPv6Address(data[-IP_SIZE:])
-        self._temp_node_ip_addresses[recipient_id] = recipient_ip_address
 
         # Generate a shared secret, KEM it and sign the KEM.
         shared_secret = os.urandom(32)
@@ -420,7 +423,14 @@ class ClientConnectionManager(ConnectionManager):
         sending_data = self._my_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
         self._send_command(ConnectionProtocol.SOLO_INVITE, recipient_ip_address, sending_data)
 
-    def _open_chat_with(self, data: str, dummy: bool = False) -> None:
+    def _handle_gc_node_ip_info(self, addr: IPv6Address, data: bytes) -> None:
+        # todo: needs auth from server
+
+        ip_list = json.loads(data.decode())
+        for recipient_id, ip_address in ip_list.items():
+            self._temp_node_ip_addresses[recipient_id] = IPv6Address(ip_address)
+
+    def _open_chat_with(self, data: str) -> None:
         # Get the recipient id.
         recipient_id = HASH_ALGORITHM(data.encode()).digest()
 
@@ -435,17 +445,16 @@ class ClientConnectionManager(ConnectionManager):
         port = str(20003 + list(self._chat_info.keys()).index(recipient_id))
         self._chat_info[recipient_id].local_port = int(port)
 
-        if not dummy:
-            encoded_recipient_id = b64encode(recipient_id).decode()
-            args = f"python src/ClientMessagingShell.py {port} {encoded_recipient_id}"
-            args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
-            proc = subprocess.Popen(args=[args], shell=True)
+        encoded_recipient_id = b64encode(recipient_id).decode()
+        args = f"python src/ClientMessagingShell.py {port} {encoded_recipient_id}"
+        args = f"lxterminal -e {args}" if os.name == "posix" else f"cmd /c start {args}"
+        proc = subprocess.Popen(args=[args], shell=True)
 
-            time.sleep(2)  # todo : change
+        time.sleep(2)  # todo : change
 
-            # If there is a queue of messages for the recipient, send them into the chat.
-            for message in self._chats[recipient_id].copy():
-                self._push_message_into_messaging_window(recipient_id, int(port), message.message_bytes)
+        # If there is a queue of messages for the recipient, send them into the chat.
+        for message in self._chats[recipient_id].copy():
+            self._push_message_into_messaging_window(recipient_id, int(port), message.message_bytes)
 
     def _make_group_chat(self, data: str) -> None:
         # Get the group ID, and send it to the server.
@@ -470,7 +479,7 @@ class ClientConnectionManager(ConnectionManager):
         group_shared_secret = self._chat_info[group_id].shared_secret
 
         for recipient_username in recipient_usernames:
-            self._open_chat_with(recipient_username, dummy=True)  # sets up everything else needed for messaging
+            ...
 
         # Store the shared secret.
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
