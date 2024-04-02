@@ -236,7 +236,7 @@ class ServerConnectionManager(ConnectionManager):
         # Split the data into the recipient's username, and the encrypted_message.
         recipient_id = data[:DIGEST_SIZE]
         encrypted_message = data[DIGEST_SIZE:]
-        sender_id = group_id or [k for k, v in self._node_ips.items() if v == addr][0]
+        sender_id = [k for k, v in self._node_ips.items() if v == addr][0]
 
         # Queue the message for the recipient.
         message_id = HASH_ALGORITHM(str(time.time()).encode() + encrypted_message).digest()
@@ -247,7 +247,7 @@ class ServerConnectionManager(ConnectionManager):
         # Send the encrypted_message to the recipient.
         if recipient_id in self._node_ips:
             recipient_addr = self._node_ips[recipient_id]
-            self._send_command(ConnectionProtocol.SEND_MESSAGE, recipient_addr, message_id + sender_id + encrypted_message)
+            self._send_command(ConnectionProtocol.SEND_MESSAGE, recipient_addr, message_id + (group_id or sender_id) + encrypted_message)
 
     def handle_gc_send_message(self, addr: IPv6Address, data: bytes) -> None:
         group_id = data[:DIGEST_SIZE]
