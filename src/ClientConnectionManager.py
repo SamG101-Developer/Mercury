@@ -284,6 +284,8 @@ class ClientConnectionManager(ConnectionManager):
         self._server_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, multicast_request)
 
     def _handle_group_chat_invite(self, addr: IPv6Address, data: bytes) -> None:
+        print(f"invite received for {data[IP_SIZE:IP_SIZE + DIGEST_SIZE]}.")
+
         # Extract the multicast address and group id from the data.
         multicast_address = IPv6Address(data[:IP_SIZE])
         group_id = data[IP_SIZE:IP_SIZE + DIGEST_SIZE]
