@@ -481,7 +481,7 @@ class ClientConnectionManager(ConnectionManager):
 
         # Load the IPs of the recipients for their invites.
         sending_data = b" ".join(recipient_ids)
-        self._send_command(ConnectionProtocol.GC_IP_REQUEST, SERVER_IP, group_id, to_server=True)
+        self._send_command(ConnectionProtocol.GC_IP_REQUEST, SERVER_IP, sending_data, to_server=True)
 
         # Store the shared secret.
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
