@@ -239,15 +239,19 @@ class ServerConnectionManager(ConnectionManager):
         sender_id = [k for k, v in self._node_ips.items() if v == addr][0]
 
         # Queue the message for the recipient.
-        message_id = HASH_ALGORITHM(str(time.time()).encode() + encrypted_message).digest()
-        if recipient_id not in self._message_queue:
-            self._message_queue[recipient_id] = {}
-        self._message_queue[recipient_id][message_id] = (sender_id, encrypted_message)
+        message_id = self._queue_message(group_id or recipient_id, sender_id, encrypted_message)
 
         # Send the encrypted_message to the recipient.
         if recipient_id in self._node_ips:
             recipient_addr = self._node_ips[recipient_id]
-            self._send_command(ConnectionProtocol.SEND_MESSAGE, recipient_addr, message_id + (group_id or sender_id) + encrypted_message)
+            self._send_command(ConnectionProtocol.SEND_MESSAGE, recipient_addr, message_id + sender_id + encrypted_message)
+
+    def _queue_message(self, recipient_id: bytes, sender_id: bytes, encrypted_message: bytes) -> bytes:
+        message_id = HASH_ALGORITHM(str(time.time()).encode() + encrypted_message).digest()
+        if recipient_id not in self._message_queue:
+            self._message_queue[recipient_id] = {}
+        self._message_queue[recipient_id][message_id] = (sender_id, encrypted_message)
+        return message_id
 
     def handle_gc_send_message(self, addr: IPv6Address, data: bytes) -> None:
         group_id = data[:DIGEST_SIZE]
