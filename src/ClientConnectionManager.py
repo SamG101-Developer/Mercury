@@ -480,7 +480,7 @@ class ClientConnectionManager(ConnectionManager):
         group_shared_secret = self._chat_info[group_id].shared_secret
 
         # Load the IPs of the recipients for their invites.
-        sending_data = b" ".join([recipient_usernames])
+        sending_data = b" ".join([recipient_ids])
         self._send_command(ConnectionProtocol.GC_IP_REQUEST, SERVER_IP, group_id, to_server=True)
 
         # Store the shared secret.
