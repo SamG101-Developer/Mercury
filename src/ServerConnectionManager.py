@@ -236,13 +236,14 @@ class ServerConnectionManager(ConnectionManager):
         next_available_suffix = len(self._groups_multicast_addresses)
         multicast_address = f"ff02::1:{next_available_suffix}"
         group_id = data[:DIGEST_SIZE]
+
+        # Store the group's multicast address and the node's IP.
         self._groups_multicast_addresses[group_id] = IPv6Address(multicast_address)
+        self._node_ips[group_id] = IPv6Address(multicast_address)
 
         # Send the ACK to the client.
-        self._send_command(ConnectionProtocol.CREATE_GC_ACK, addr, group_id)
-
-    def _handle_invite_to_group_chat(self, addr: IPv6Address, data: bytes) -> None:
-        ...
+        sending_data = group_id + self._groups_multicast_addresses[group_id].packed
+        self._send_command(ConnectionProtocol.CREATE_GC_ACK, addr, sending_data)
 
     def _handle_message_ack(self, addr: IPv6Address, data: bytes) -> None:
         # Split the data into the sender's username and the message_id.

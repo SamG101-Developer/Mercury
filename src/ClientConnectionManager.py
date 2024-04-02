@@ -1,5 +1,5 @@
 import json
-import socket, subprocess, time, os
+import socket, struct, subprocess, time, os
 from base64 import b64decode, b64encode
 from dataclasses import dataclass, field
 from ipaddress import IPv6Address
@@ -30,12 +30,15 @@ class ChatInfo:
 class ClientConnectionManager(ConnectionManager):
     _server_ready: bool
     _cert = None
-    _chat_info: dict[bytes, ChatInfo]  # ID -> (Shared secret, Public key, Ready)
+    _chat_info: dict[bytes, ChatInfo]  # ID -> ChatInfo
+    _node_certs: dict[bytes, bytes]  # ID -> Certificate
+    _group_chat_multicast_addresses: dict[bytes, IPv6Address]  # GroupID -> Multicast IP
     _my_username: str
     _my_id: bytes
     _secret_key: rsa.RSAPrivateKey
     _public_key: rsa.RSAPublicKey
     _chats: dict[bytes, list[Message]]  # ID -> [Raw Message]
+    _temp_node_ip_addresses: dict[bytes, IPv6Address]  # ID -> IP
 
     def __init__(self):
         super().__init__()
@@ -45,6 +48,9 @@ class ClientConnectionManager(ConnectionManager):
         self._my_id = b""
         self._chat_info = {}
         self._chats = {}
+        self._node_certs = {}
+        self._group_chat_multicast_addresses = {}
+        self._temp_node_ip_addresses = {}
 
         # Load any pre-known chat keys, and initiate the boot sequence.
         self._load_chat_info()
@@ -150,11 +156,12 @@ class ClientConnectionManager(ConnectionManager):
         # Get the recipient's shared secret and public key.
         chat = self._chat_info[recipient_id]
 
-        # Encrypt the message and send it.
+        # Encrypt the message.
         message += b"\n"
         self._chats[recipient_id].append(Message(message_bytes=b"Me > " + message, am_i_sender=True))
         encrypted_message = self._encrypt_message(chat.shared_secret, self._my_username.encode() + b" > " + message)
 
+        # Send the message to the server.
         sending_data = recipient_id + encrypted_message
         self._send_command(ConnectionProtocol.SEND_MESSAGE, SERVER_IP, sending_data, to_server=True)
 
@@ -199,13 +206,9 @@ class ClientConnectionManager(ConnectionManager):
             case ConnectionProtocol.CREATE_GC_ACK:
                 self._handle_group_chat_creation_ack(addr, data)
 
-            # When the server tells the client to prepare for a group chat.
-            case ConnectionProtocol.PREP_FOR_GC:
-                ...
-
             # When the server invites the client to a group chat (from another node).
             case ConnectionProtocol.GC_INVITE:
-                ...
+                self._handle_group_chat_invite(addr, data)
 
             # When the server sends a group message to the client.
             case ConnectionProtocol.SEND_GROUP_MESSAGE:
@@ -253,16 +256,39 @@ class ClientConnectionManager(ConnectionManager):
     def _handle_group_chat_creation_ack(self, addr: IPv6Address, data: bytes) -> None:
         # Extract the group id from the data.
         group_id = data[:DIGEST_SIZE]
+        multicast_address = IPv6Address(data[DIGEST_SIZE:])
 
-        # Store the group id and create an empty chat list.
-        self._chat_info[group_id] = ChatInfo(shared_secret=b"")
+        # Store the group id and create an empty chat list. Create a shared secret for the group chat.
+        self._chat_info[group_id] = ChatInfo(shared_secret=os.urandom(32))
         self._chats[group_id] = []
+        self._group_chat_multicast_addresses[group_id] = multicast_address
+
+        # Connect the socket to the multicast receiver.
+        self._attach_to_multicast_group(multicast_address)
+
+    def _attach_to_multicast_group(self, multicast_address: IPv6Address) -> None:
+        # Attach the receiver socket to a specific multicast group.
+        socket_multicast_group = socket.inet_pton(socket.AF_INET6, multicast_address.exploded)
+        multicast_request = socket_multicast_group + struct.pack("@I", 0)
+        self._server_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, multicast_request)
+
+    def _handle_group_chat_invite(self, addr: IPv6Address, data: bytes) -> None:
+        # Extract the multicast address and group id from the data.
+        multicast_address = IPv6Address(data[:IP_SIZE])
+        group_id = data[IP_SIZE:IP_SIZE + DIGEST_SIZE]
+
+        # Use the solo invite handler to process the group invite (store keys etc.).
+        self._handle_solo_invite(addr, data[IP_SIZE:])
+
+        # Connect the socket to the multicast receiver.
+        self._group_chat_multicast_addresses[group_id] = multicast_address
+        self._attach_to_multicast_group(multicast_address)
 
     def _handle_solo_invite(self, addr: IPv6Address, data: bytes) -> None:
         # Load the chat username into the dictionary, with an empty key (no KEX yet)
-        chat_receiver_id                 = data[:(pre := DIGEST_SIZE)]
-        chat_receiver_certificate_sig    = data[pre:(pre := pre + RSA_SIGNATURE_SIZE)]
-        chat_receiver_certificate_raw    = data[pre:(pre := pre + RSA_CERTIFICATE_SIZE)]
+        chat_initiator_id                = data[:(pre := DIGEST_SIZE)]
+        chat_initiator_certificate_sig   = data[pre:(pre := pre + RSA_SIGNATURE_SIZE)]
+        chat_initiator_certificate_raw   = data[pre:(pre := pre + RSA_CERTIFICATE_SIZE)]
         kem_wrapped_shared_secret        = data[pre:(pre := pre + RSA_KEM_SIZE)]
         signed_kem_wrapped_shared_secret = data[pre:]
 
@@ -270,8 +296,8 @@ class ClientConnectionManager(ConnectionManager):
         try:
             server_public_key_raw = open("src/_server_keys/public_key.pem", "rb").read()
             load_pem_public_key(server_public_key_raw).verify(
-                signature=chat_receiver_certificate_sig,
-                data=chat_receiver_certificate_raw,
+                signature=chat_initiator_certificate_sig,
+                data=chat_initiator_certificate_raw,
                 padding=padding.PSS(
                     mgf=padding.MGF1(hashes.SHA256()),
                     salt_length=padding.PSS.MAX_LENGTH),
@@ -282,7 +308,7 @@ class ClientConnectionManager(ConnectionManager):
             return
 
         # Verify the signed KEM is valid.
-        chat_initiator_public_key = chat_receiver_certificate_raw[DIGEST_SIZE:]
+        chat_initiator_public_key = chat_initiator_certificate_raw[DIGEST_SIZE:]
         try:
             load_pem_public_key(chat_initiator_public_key).verify(
                 signature=signed_kem_wrapped_shared_secret,
@@ -305,12 +331,12 @@ class ClientConnectionManager(ConnectionManager):
 
         # Store the shared secret.
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
-        current_stored_keys[b64encode(chat_receiver_id).decode()] = {"shared_secret": b64encode(shared_secret).decode()}
+        current_stored_keys[b64encode(chat_initiator_id).decode()] = {"shared_secret": b64encode(shared_secret).decode()}
         json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
 
         # Load the shared secret into the chat info and create an empty chat list.
-        self._chat_info[chat_receiver_id] = ChatInfo(shared_secret=shared_secret)
-        self._chats[chat_receiver_id] = []
+        self._chat_info[chat_initiator_id] = ChatInfo(shared_secret=shared_secret)
+        self._chats[chat_initiator_id] = []
 
     def _handle_received_message(self, addr: IPv6Address, data: bytes) -> None:
         # Extract the message ID, recipient ID, and encrypted message.
@@ -362,6 +388,7 @@ class ClientConnectionManager(ConnectionManager):
         recipient_id = certificate_raw[:DIGEST_SIZE]
         recipient_public_key = certificate_raw[DIGEST_SIZE:DIGEST_SIZE + RSA_PUBLIC_KEY_PEM_SIZE]
         recipient_ip_address = IPv6Address(data[-IP_SIZE:])
+        self._temp_node_ip_addresses[recipient_id] = recipient_ip_address
 
         # Generate a shared secret, KEM it and sign the KEM.
         shared_secret = os.urandom(32)
@@ -387,6 +414,7 @@ class ClientConnectionManager(ConnectionManager):
         # Load the shared secret into the chat info and create an empty chat list.
         self._chat_info[recipient_id] = ChatInfo(shared_secret=shared_secret)
         self._chats[recipient_id] = []
+        self._node_certs[recipient_id] = certificate_raw
 
         # Send the signed KEM to the chat recipient.
         sending_data = self._my_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
@@ -429,8 +457,49 @@ class ClientConnectionManager(ConnectionManager):
 
     def _invite_to_group_chat(self, data: str) -> None:
         # Get the group ID and recipient IDs to add to the group chat.
-        group_id, *recipient_ids = data.split(" ")
-        self._send_command(ConnectionProtocol.GC_INVITE, SERVER_IP, group_id + b" ".join(recipient_ids), to_server=True)
+        group_id, *recipient_usernames = data.split(" ")
+        group_shared_secret = self._chat_info[group_id].shared_secret
+
+        for recipient_username in recipient_usernames:
+            self._open_chat_with(recipient_username)  # sets up everything else needed for messaging
+
+        # Store the shared secret.
+        current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
+        current_stored_keys[b64encode(group_id).decode()] = {"shared_secret": b64encode(group_shared_secret).decode()}
+        json.dump(current_stored_keys, open("src/_chat_keys/keys.json", "w"))
+
+        # Load the shared secret into the chat info and create an empty chat list.
+        self._chat_info[group_id] = ChatInfo(shared_secret=group_shared_secret)
+        self._chats[group_id] = []
+        multicast_address = self._group_chat_multicast_addresses[group_id].packed
+
+        for recipient_username in recipient_usernames:
+            # Wait for the recipient to be in the ip address map.
+            recipient_id = HASH_ALGORITHM(recipient_username.encode()).digest()
+            while recipient_id not in self._temp_node_ip_addresses.keys():
+                pass
+
+            recipient_public_key = self._node_certs[recipient_id][DIGEST_SIZE:]
+            recipient_ip_address = self._temp_node_ip_addresses[recipient_id]
+            del self._temp_node_ip_addresses[recipient_id]
+
+            kem_wrapped_shared_secret = load_pem_public_key(recipient_public_key).encrypt(
+                plaintext=group_shared_secret,
+                padding=padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None))
+
+            signed_kem_wrapped_shared_secret = self._secret_key.sign(
+                data=kem_wrapped_shared_secret,
+                padding=padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH),
+                algorithm=hashes.SHA256())
+
+            # Send the signed KEM to the chat recipient, as a group invite.
+            sending_data = multicast_address + group_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
+            self._send_command(ConnectionProtocol.GC_INVITE, recipient_ip_address, sending_data)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")
