@@ -226,6 +226,7 @@ class ServerConnectionManager(ConnectionManager):
 
         # Send the IP addresses to the client.
         sending_data = json.dumps(ip_addresses).encode()
+        print("Sending IP addresses to client: ", sending_data)
         self._send_command(ConnectionProtocol.GC_NODE_INFO, addr, sending_data)
 
     def _handle_send_message(self, addr: IPv6Address, data: bytes) -> None:

@@ -481,7 +481,7 @@ class ClientConnectionManager(ConnectionManager):
         group_shared_secret = self._chat_info[group_id].shared_secret
 
         for recipient_username in recipient_usernames:
-            ...
+            self._send_command(ConnectionProtocol.GC_IP_REQUEST, SERVER_IP, group_id, to_server=True)
 
         # Store the shared secret.
         current_stored_keys = json.load(open("src/_chat_keys/keys.json", "r"))
