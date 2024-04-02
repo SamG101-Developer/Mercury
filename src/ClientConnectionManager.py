@@ -263,6 +263,8 @@ class ClientConnectionManager(ConnectionManager):
         self._chats[group_id] = []
         self._group_chat_multicast_addresses[group_id] = multicast_address
 
+        print("ACKED GC", group_id, multicast_address)
+
         # Connect the socket to the multicast receiver.
         self._attach_to_multicast_group(multicast_address)
 
