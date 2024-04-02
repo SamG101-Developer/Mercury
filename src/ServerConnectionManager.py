@@ -224,7 +224,7 @@ class ServerConnectionManager(ConnectionManager):
                 return
             ip_addresses[b64encode(recipient_id).decode()] = {
                 "ip": self._node_ips[recipient_id].exploded,
-                "cert": b64encode(self._node_certs[recipient_id])
+                "cert": b64encode(self._node_certs[recipient_id]).decode()
             }
 
         # Send the IP addresses to the client.
