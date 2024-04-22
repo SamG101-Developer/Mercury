@@ -410,6 +410,7 @@ class ClientConnectionManager(ConnectionManager):
         if local_port != -1:
             # Handle rich media downloads
             if message[message.find(b"> ") + 2:].startswith(b"[rm-img:"):
+                print(message)
                 _, file_name, file_contents = message.split(b":")
                 open(f"src/_store/{file_name.decode()}", "wb").write(file_contents)
                 message = message[:message.find(b"> ")] + f"Received file {file_name.decode()}".encode()
