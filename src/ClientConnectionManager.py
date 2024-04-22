@@ -115,12 +115,13 @@ class ClientConnectionManager(ConnectionManager):
             group_id = next((who for who, info in self._chat_info.items() if info.local_port == port_from and who in self._group_chat_multicast_addresses.keys()), b"")
 
             # Check if the message needs to contain rich media (image, voice)
-            if message == b"[rm-img]":
+            if message == b"[rm-file]":
                 root = tk.Tk()
                 root.withdraw()
                 file_path = filedialog.askopenfilename()
+                file_name = os.path.split(file_path)[1]
                 root.destroy()
-                message = b"[rm-img:" + file_path.encode() + b":" + open(file_path, "rb").read() + b"]"
+                message = b"[rm-file:" + file_path.encode() + b":" + open(file_path, "rb").read() + b"]"
 
             # Send the message
             self._send_message_to(message, encoded_recipient_id, for_group=group_id)
@@ -409,7 +410,7 @@ class ClientConnectionManager(ConnectionManager):
 
         if local_port != -1:
             # Handle rich media downloads
-            if message[message.find(b"> ") + 2:].startswith(b"[rm-img:"):
+            if message[message.find(b"> ") + 2:].startswith(b"[rm-file:"):
                 _, file_name, file_contents = message.split(b":", 2)
                 open(f"src/_store/{file_name.decode()}", "wb").write(file_contents)
                 message = message[:message.find(b"> ")] + f"Received file {file_name.decode()}".encode()
