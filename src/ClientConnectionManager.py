@@ -104,6 +104,8 @@ class ClientConnectionManager(ConnectionManager):
             # Send the message
             self._send_message_to(message, encoded_recipient_id, for_group=group_id)
 
+        reader_socket.close()
+
     def register_to_server(self) -> None:
         # Don't allow double registration.
         if os.path.exists("src/_my_keys"):
@@ -194,6 +196,10 @@ class ClientConnectionManager(ConnectionManager):
             # When the user wants to invite someone to a group chat
             case "invitetogroup":
                 Thread(target=self._invite_to_group_chat, args=(data, )).start()
+
+            # Reset information
+            case "reset":
+                Thread(target=self._reset_node_info).start()
 
     def _handle_command(self, command: ConnectionProtocol, addr: IPv6Address, data: bytes) -> None:
         match command:
@@ -531,6 +537,11 @@ class ClientConnectionManager(ConnectionManager):
             # Send the signed KEM to the chat recipient, as a group invite.
             sending_data = multicast_address + group_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
             self._send_command(ConnectionProtocol.GC_INVITE, recipient_ip_address, sending_data)
+
+    def _reset_node_info(self) -> None:
+        # Clear key files and any identifying information, and re-register
+        for file in os.listdir("src/_my_keys") + os.listdir("src/_chat_keys"):
+            print(file)
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")
