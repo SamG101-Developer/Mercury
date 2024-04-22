@@ -67,7 +67,7 @@ class ClientConnectionManager(ConnectionManager):
     def _load_chat_info(self) -> None:
         # If the file is missing, create it.
         if not os.path.exists("src/_chat_keys/keys.json"):
-            os.mkdir("src/_chat_keys")
+            if not os.path.exists("src/_chat_keys"): os.mkdir("src/_chat_keys")
             open("src/_chat_keys/keys.json", "w").write("{}")
 
         # Load known keys and initialize a chat list of messages.
