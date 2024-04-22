@@ -549,6 +549,7 @@ class ClientConnectionManager(ConnectionManager):
             # Send the signed KEM to the chat recipient, as a group invite.
             sending_data = multicast_address + group_id + self._cert + kem_wrapped_shared_secret + signed_kem_wrapped_shared_secret
             self._send_command(ConnectionProtocol.GC_INVITE, recipient_ip_address, sending_data)
+            print(f"Invited {recipient_id} to group chat {group_name}.")
 
     def _reset_node_info(self) -> None:
         # Clear key files and any identifying information, and re-register
