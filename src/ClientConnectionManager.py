@@ -413,7 +413,7 @@ class ClientConnectionManager(ConnectionManager):
             if message[message.find(b"> ") + 2:].startswith(b"[rm-file:"):
                 _, file_name, file_contents = message.split(b":", 2)
                 open(f"src/_store/{file_name.decode()}", "wb").write(file_contents)
-                message = message[:message.find(b"> ")] + f"Received file {file_name.decode()}".encode()
+                message = message[:message.find(b"> ")] + f"Received file {file_name.decode()}\n".encode()
 
             self._push_message_into_messaging_window(sender_id, local_port, message)
 
