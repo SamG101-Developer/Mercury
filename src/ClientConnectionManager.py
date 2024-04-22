@@ -1,6 +1,6 @@
 import json
 import shutil
-import socket, struct, subprocess, time, os
+import socket, struct, subprocess, time, os, tkinter as tk
 from base64 import b64decode, b64encode
 from dataclasses import dataclass, field
 from ipaddress import IPv6Address
@@ -116,6 +116,8 @@ class ClientConnectionManager(ConnectionManager):
 
             # Check if the message needs to contain rich media (image, voice)
             if message == b"[rm-img]":
+                root = tk.Tk()
+                root.withdraw()
                 file_path = filedialog.askopenfilename()
                 message = b"[rm-img:" + file_path.encode() + b":" + open(file_path, "rb").read() + b"]"
 

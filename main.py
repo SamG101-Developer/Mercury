@@ -1,4 +1,3 @@
-import tkinter as tk
 from argparse import ArgumentParser
 
 from src.ServerConnectionManager import ServerConnectionManager
@@ -33,7 +32,4 @@ def run(instance: type):
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    root.withdraw()
-
     main()
