@@ -109,11 +109,15 @@ class ClientConnectionManager(ConnectionManager):
     def register_to_server(self) -> None:
         # Don't allow double registration.
         if os.path.exists("src/_my_keys"):
-            self._secret_key = load_pem_private_key(open("src/_my_keys/private_key.pem", "rb").read(), password=None)
-            self._public_key = load_pem_public_key(open("src/_my_keys/public_key.pem", "rb").read())
-            self._my_username = open("src/_my_keys/username.txt", "r").read()
-            self._my_id = open("src/_my_keys/identifier.txt", "rb").read()
-            self._cert = open("src/_my_keys/certificate.pem", "rb").read()
+            try:
+                self._secret_key = load_pem_private_key(open("src/_my_keys/private_key.pem", "rb").read(), password=None)
+                self._public_key = load_pem_public_key(open("src/_my_keys/public_key.pem", "rb").read())
+                self._my_username = open("src/_my_keys/username.txt", "r").read()
+                self._my_id = open("src/_my_keys/identifier.txt", "rb").read()
+                self._cert = open("src/_my_keys/certificate.pem", "rb").read()
+            except FileNotFoundError:
+                self._reset_node_info()
+                return
             self._handle_error(IPv6Address("::1"), f"Logged in as {self._my_username}.".encode())
             return
 
@@ -542,6 +546,7 @@ class ClientConnectionManager(ConnectionManager):
         # Clear key files and any identifying information, and re-register
         for file in os.listdir("src/_my_keys"): os.remove(f"src/_my_keys/{file}")
         for file in os.listdir("src/_chat_keys"): os.remove(f"src/_chat_keys/{file}")
+        self.register_to_server()
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")
