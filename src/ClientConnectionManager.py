@@ -18,6 +18,8 @@ from src.ConnectionProtocol import ConnectionProtocol
 from src.Message import Message
 from src.Crypto import *
 
+from tkinter import filedialog
+
 
 SERVER_IP = IPv6Address("fe80::7ab0:b7e9:32c4:e0e3")
 
@@ -76,6 +78,11 @@ class ClientConnectionManager(ConnectionManager):
             print("No chat keys file found. Creating one.")
             open("src/_chat_keys/keys.json", "w").write("{}")
 
+        # If the store folder is missing, create it
+        if not os.path.exists("src/_store"):
+            print("No store folder found. Creating one.")
+            os.mkdir("src/_store")
+
         # Load known keys and initialize a chat list of messages.
         chats = json.load(open("src/_chat_keys/keys.json", "r"))
         for recipient_id in chats.keys():
@@ -98,14 +105,19 @@ class ClientConnectionManager(ConnectionManager):
 
         # Continuously receive messages from the client messaging shell and call the handler function.
         while True:
-            # Receive the message and check if it is from the local machine.
+            # Receive the message and check it is from the local machine.
             message, addr = reader_socket.recvfrom(1024)
             if addr[0] != "::1": continue
             encoded_recipient_id, message = message[:DIGEST_SIZE], message[DIGEST_SIZE:]
 
-            # Check if the message is from a group chat or a solo chat.
+            # Check if the message is from a group chat, or a solo chat.
             port_from = addr[1]
             group_id = next((who for who, info in self._chat_info.items() if info.local_port == port_from and who in self._group_chat_multicast_addresses.keys()), b"")
+
+            # Check if the message needs to contain rich media (image, voice)
+            if message == b"[rm-img]":
+                file_path = filedialog.askopenfilename()
+                message = b"[rm-img:" + file_path.encode() + b":" + open(file_path, "rb").read() + b"]"
 
             # Send the message
             self._send_message_to(message, encoded_recipient_id, for_group=group_id)
@@ -376,7 +388,7 @@ class ClientConnectionManager(ConnectionManager):
         sender_id = data[DIGEST_SIZE:DIGEST_SIZE * 2]
         encrypted_message = data[DIGEST_SIZE * 2:]
 
-        # Wait for the sender to be in teh chat info (could still be processing KEM)
+        # Wait for the sender to be in the chat info (could still be processing KEM)
         while sender_id not in self._chat_info.keys():
             pass
 
@@ -385,13 +397,20 @@ class ClientConnectionManager(ConnectionManager):
         message = self._decrypt_message(shared_secret, encrypted_message)
         self._chats[sender_id].append(Message(message_bytes=message, am_i_sender=False))
 
-        # ACK the message.
-        self._send_command(ConnectionProtocol.MESSAGE_ACK, SERVER_IP, message_id, to_server=True)
+        # ACK the message (not for group chats).
+        if sender_id not in self._group_chat_multicast_addresses.keys():
+            self._send_command(ConnectionProtocol.MESSAGE_ACK, SERVER_IP, message_id, to_server=True)
 
         # Put the message in the chat window if there is a process for the chat window, and it is alive.
         local_port = self._chat_info[sender_id].local_port
 
         if local_port != -1:
+            # Handle rich media downloads
+            if message.startswith(b"[rm-img:"):
+                _, file_name, file_contents = message.split(b":")
+                open(f"src/_store/{file_name.decode()}", "wb").write(file_contents)
+                message = f"Received file {file_name.decode()}"
+
             self._push_message_into_messaging_window(sender_id, local_port, message)
 
     def _push_message_into_messaging_window(self, sender_id: bytes, local_port: int, message: bytes) -> None:
@@ -493,10 +512,6 @@ class ClientConnectionManager(ConnectionManager):
         # Get the group ID, and send it to the server.
         group_id = HASH_ALGORITHM(data.encode()).digest()
         self._send_command(ConnectionProtocol.CREATE_GC, SERVER_IP, group_id, to_server=True)
-
-        # Wait for the server to confirm the group chat creation.
-        # while group_id not in self._chat_info.keys():
-        #     pass
 
     def _invite_to_group_chat(self, data: str) -> None:
         # Get the group ID and recipient IDs to add to the group chat.
