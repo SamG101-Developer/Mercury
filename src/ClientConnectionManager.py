@@ -1,4 +1,5 @@
 import json
+import shutil
 import socket, struct, subprocess, time, os
 from base64 import b64decode, b64encode
 from dataclasses import dataclass, field
@@ -544,8 +545,8 @@ class ClientConnectionManager(ConnectionManager):
 
     def _reset_node_info(self) -> None:
         # Clear key files and any identifying information, and re-register
-        for file in os.listdir("src/_my_keys"): os.remove(f"src/_my_keys/{file}")
-        for file in os.listdir("src/_chat_keys"): os.remove(f"src/_chat_keys/{file}")
+        shutil.rmtree("src/_my_keys")
+        shutil.rmtree("src/_chat_keys")
         self.register_to_server()
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
