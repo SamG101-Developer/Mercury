@@ -242,7 +242,7 @@ class ServerConnectionManager(ConnectionManager):
         message_id = HASH_ALGORITHM(str(time.time()).encode() + encrypted_message).digest()
         if recipient_id not in self._message_queue:
             self._message_queue[recipient_id] = {}
-        self._message_queue[recipient_id][message_id] = (sender_id, encrypted_message)
+        self._message_queue[recipient_id][message_id] = (group_id or sender_id, encrypted_message)
 
         # Send the encrypted_message to the recipient.
         if recipient_id in self._node_ips:
@@ -275,4 +275,5 @@ class ServerConnectionManager(ConnectionManager):
         message_id = data
 
         # Remove the message from the queue.
+        # todo: error re group chats here
         self._message_queue[sender_username].pop(message_id)
