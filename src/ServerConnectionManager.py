@@ -2,6 +2,7 @@ import json, time, os
 from ipaddress import IPv6Address
 from threading import Lock
 from base64 import b64encode, b64decode
+from typing import Optional
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -14,11 +15,11 @@ from src.Crypto import *
 
 
 class ServerConnectionManager(ConnectionManager):
-    _secret_key: rsa.RSAPrivateKey
-    _public_key: rsa.RSAPublicKey
-    _node_ips: dict[bytes, IPv6Address]  # ID -> IP
-    _node_pub_keys: dict[bytes, bytes]   # ID -> Public key
-    _node_certs: dict[bytes, bytes]      # ID -> Certificate
+    _secret_key: Optional[rsa.RSAPrivateKey]
+    _public_key: Optional[rsa.RSAPublicKey]
+    _node_ips: dict[bytes, Optional[IPv6Address]]  # ID -> IP
+    _node_pub_keys: dict[bytes, bytes]  # ID -> Public key
+    _node_certs: dict[bytes, bytes]  # ID -> Certificate
     _message_queue: dict[bytes, dict[bytes, tuple[bytes, bytes]]]  # ID -> {message_id -> (sender, message)}
     _groups_multicast_addresses: dict[bytes, IPv6Address]  # ID -> Multicast address
 
@@ -30,7 +31,7 @@ class ServerConnectionManager(ConnectionManager):
         # Initialize the attributes.
         self._secret_key = None
         self._public_key = None
-        self._node_ips = {}
+        self._node_ips = self._load_saved_node_info()
         self._node_pub_keys = {}
         self._node_certs = {}
         self._message_queue = {}
@@ -41,6 +42,11 @@ class ServerConnectionManager(ConnectionManager):
             self._generate_and_serialize_key_pair()
         else:
             self._load_key_pair()
+
+    def _load_saved_node_info(self) -> dict[bytes, Optional[IPv6Address]]:
+        # Get the saved usernames, and assign an empty address until they connect.
+        node_info = json.load(open("src/_server_keys/node_info.json"))
+        return {b64decode(k): None for k in node_info.keys()}
 
     def _generate_and_serialize_key_pair(self) -> None:
         # Generate a new secret and public key pair.
