@@ -121,7 +121,7 @@ class ClientConnectionManager(ConnectionManager):
                 file_path = filedialog.askopenfilename()
                 file_name = os.path.split(file_path)[1]
                 root.destroy()
-                message = b"[rm-file:" + file_path.encode() + b":" + open(file_path, "rb").read() + b"]"
+                message = b"[rm-file:" + file_name.encode() + b":" + open(file_path, "rb").read() + b"]"
 
             # Send the message
             self._send_message_to(message, encoded_recipient_id, for_group=group_id)
