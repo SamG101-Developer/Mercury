@@ -289,6 +289,7 @@ class ClientConnectionManager(ConnectionManager):
         self._chat_info[group_id] = ChatInfo(shared_secret=os.urandom(32))
         self._chats[group_id] = []
         self._group_chat_multicast_addresses[group_id] = multicast_address
+        print("Server acknowledges group chat")
 
         # Connect the socket to the multicast receiver.
         self._attach_to_multicast_group(multicast_address)
@@ -300,7 +301,7 @@ class ClientConnectionManager(ConnectionManager):
         self._server_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, multicast_request)
 
     def _handle_group_chat_invite(self, addr: IPv6Address, data: bytes) -> None:
-        print(f"invite received for {data[IP_SIZE:IP_SIZE + DIGEST_SIZE]}.")
+        print(f"Invite received for {data[IP_SIZE:IP_SIZE + DIGEST_SIZE]}.")
 
         # Extract the multicast address and group id from the data.
         multicast_address = IPv6Address(data[:IP_SIZE])
@@ -502,6 +503,7 @@ class ClientConnectionManager(ConnectionManager):
         group_name, *recipient_usernames = data.split(" ")
         group_id = HASH_ALGORITHM(group_name.encode()).digest()
         recipient_ids = [HASH_ALGORITHM(username.encode()).digest() for username in recipient_usernames]
+        print(f"Inviting {recipient_usernames} to group chat {group_name}.")
 
         # Wait for the group chat to be created (only relevant if the invite is right after group creation).
         while group_id not in self._chat_info.keys():
