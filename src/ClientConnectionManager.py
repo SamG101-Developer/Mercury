@@ -112,7 +112,7 @@ class ClientConnectionManager(ConnectionManager):
             self._my_username = open("src/_my_keys/username.txt", "r").read()
             self._my_id = open("src/_my_keys/identifier.txt", "rb").read()
             self._cert = open("src/_my_keys/certificate.pem", "rb").read()
-            self._handle_error(IPv6Address("::1"), b"Already registered.")
+            self._handle_error(IPv6Address("::1"), f"Logged in as {self._my_username}.".encode())
             return
 
         self.register_to_server_internal(input("Username: "))
