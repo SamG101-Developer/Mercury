@@ -119,6 +119,7 @@ class ClientConnectionManager(ConnectionManager):
                 root = tk.Tk()
                 root.withdraw()
                 file_path = filedialog.askopenfilename()
+                root.destroy()
                 message = b"[rm-img:" + file_path.encode() + b":" + open(file_path, "rb").read() + b"]"
 
             # Send the message
@@ -408,10 +409,10 @@ class ClientConnectionManager(ConnectionManager):
 
         if local_port != -1:
             # Handle rich media downloads
-            if message.startswith(b"[rm-img:"):
+            if message[message.find(b"> ") + 2:].startswith(b"[rm-img:"):
                 _, file_name, file_contents = message.split(b":")
                 open(f"src/_store/{file_name.decode()}", "wb").write(file_contents)
-                message = f"Received file {file_name.decode()}"
+                message = message[:message.find(b"> ")] + f"Received file {file_name.decode()}".encode()
 
             self._push_message_into_messaging_window(sender_id, local_port, message)
 
