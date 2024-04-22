@@ -66,9 +66,14 @@ class ClientConnectionManager(ConnectionManager):
             self._handle_local_command(command)
 
     def _load_chat_info(self) -> None:
+        # If the colder is missing, create it.
+        if not os.path.exists("src/_chat_keys"):
+            print("No chat keys directory found. Creating one.")
+            os.mkdir("src/_chat_keys")
+
         # If the file is missing, create it.
         if not os.path.exists("src/_chat_keys/keys.json"):
-            if not os.path.exists("src/_chat_keys"): os.mkdir("src/_chat_keys")
+            print("No chat keys file found. Creating one.")
             open("src/_chat_keys/keys.json", "w").write("{}")
 
         # Load known keys and initialize a chat list of messages.
