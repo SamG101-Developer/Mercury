@@ -540,8 +540,8 @@ class ClientConnectionManager(ConnectionManager):
 
     def _reset_node_info(self) -> None:
         # Clear key files and any identifying information, and re-register
-        for file in os.listdir("src/_my_keys") + os.listdir("src/_chat_keys"):
-            print(file)
+        for file in os.listdir("src/_my_keys"): os.remove(f"src/_my_keys/{file}")
+        for file in os.listdir("src/_chat_keys"): os.remove(f"src/_chat_keys/{file}")
 
     def _handle_error(self, address: IPv6Address, data: bytes) -> None:
         print(f"Error from {address}: {data}")
