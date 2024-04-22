@@ -18,7 +18,7 @@ from src.Message import Message
 from src.Crypto import *
 
 
-SERVER_IP = IPv6Address("fe80::399:3723:1f1:ea97")
+SERVER_IP = IPv6Address("fe80::7ab0:b7e9:32c4:e0e3")
 
 
 @dataclass(kw_only=True)
