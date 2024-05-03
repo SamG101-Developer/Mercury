@@ -21,7 +21,7 @@ from src.Crypto import *
 from tkinter import filedialog
 
 
-SERVER_IP = IPv6Address("fe80::7ab0:b7e9:32c4:e0e3")
+SERVER_IP = IPv6Address("fe80::7c7b:e49b:8cd:dc22")
 
 
 @dataclass(kw_only=True)
